@@ -56,7 +56,11 @@ func (a *AboutDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 		runes := []rune(l.text)
 		px := x + (dialogW-len(runes))/2
 		for j, r := range runes {
-			screen.SetContent(px+j, y+2+i, r, nil, l.style)
+			style := l.style
+			if r == '║' || r == '╔' || r == '╗' || r == '╚' || r == '╝' || r == '═' {
+				style = accentStyle
+			}
+			screen.SetContent(px+j, y+2+i, r, nil, style)
 		}
 	}
 
