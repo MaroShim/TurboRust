@@ -28,9 +28,16 @@ func NewWatchWindow(winNum int) *WatchWindow {
 func (w *WatchWindow) SetState(st debugger.DebugState) {
 	w.Variables = st.LocalVars
 	if st.Exited {
-		w.StatusText = fmt.Sprintf("Process exited with code %d. [Debug finished]", st.ExitCode)
-	} else if st.CurrentFile != "" {
-		w.StatusText = fmt.Sprintf("Paused at %s:%d in %s", st.CurrentFile, st.CurrentLine, st.CurrentFunc)
+		w.StatusText = fmt.Sprintf("Program exited (code %d). [Alt+F5: User Screen]", st.ExitCode)
+	} else if st.CurrentFile != "" && st.CurrentLine > 0 {
+		base := st.CurrentFile
+		for i := len(base) - 1; i >= 0; i-- {
+			if base[i] == '/' || base[i] == '\\' {
+				base = base[i+1:]
+				break
+			}
+		}
+		w.StatusText = fmt.Sprintf("Paused at %s:%d in %s", base, st.CurrentLine, st.CurrentFunc)
 	} else if st.Active {
 		w.StatusText = "Debugging session active (running)..."
 	} else {

@@ -95,6 +95,17 @@ func main() {
 					compileDlg.Show(editor.FileName, bRes.LinesCompiled, bRes)
 				} else {
 					sound.PlayBreakpoint()
+					// If no breakpoints were set in editor, run through to completion
+					hasBPs := false
+					for _, set := range editor.Breakpoints {
+						if set {
+							hasBPs = true
+							break
+						}
+					}
+					if !hasBPs && app.GetDebugger().IsActive() {
+						_ = app.DebugContinue()
+					}
 				}
 			} else {
 				_ = app.DebugContinue()
@@ -133,7 +144,7 @@ func main() {
 			watch.Visible = !watch.Visible
 		case "debug_toggle_bp":
 			currLine := editor.CursorY + 1
-			editor.ToggleBreakpoint(currLine)
+			app.ToggleBreakpoint(currLine)
 			sound.PlayBell()
 		case "options_toggle_linenums":
 			editor.ToggleLineNumbers()

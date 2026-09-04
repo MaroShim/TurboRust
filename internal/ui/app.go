@@ -170,13 +170,31 @@ func (a *App) GetWatchWindow() *WatchWindow {
 	return a.watchWindow
 }
 
+func (a *App) ToggleBreakpoint(line int) bool {
+	isSet := a.editor.ToggleBreakpoint(line)
+	targetFile := a.editor.FilePath
+	if targetFile != "" {
+		absTarget, _ := filepath.Abs(targetFile)
+		if isSet {
+			a.debugger.SetBreakpoint(absTarget, line)
+		} else {
+			a.debugger.RemoveBreakpoint(absTarget, line)
+		}
+	}
+	return isSet
+}
+
 func (a *App) SyncDebuggerState() {
 	st := a.debugger.GetState()
 	a.watchWindow.SetState(st)
-	if st.CurrentLine > 0 {
+	if st.CurrentLine > 0 && st.Active {
 		a.editor.SetCurrentIP(st.CurrentLine)
 	} else {
 		a.editor.SetCurrentIP(0)
+	}
+
+	if out := a.debugger.GetProgramOutput(); out != "" {
+		a.userScreen.SetExecutionResult(out, st.ExitCode, "debug")
 	}
 
 	// Update status bar items based on debug active state
@@ -224,22 +242,19 @@ func (a *App) StartDebugging() (*compiler.BuildResult, error) {
 	absTarget, _ := filepath.Abs(targetFile)
 
 	// Register editor breakpoints into debugger
-	hasAnyBP := false
-	for l := range a.editor.Breakpoints {
-		a.debugger.ToggleBreakpoint(absTarget, l)
-		hasAnyBP = true
+	a.debugger.ClearBreakpoints()
+	for l, set := range a.editor.Breakpoints {
+		if set {
+			a.debugger.SetBreakpoint(absTarget, l)
+		}
 	}
 
 	curLine := a.editor.CursorY + 1
-	if !hasAnyBP {
-		if curLine < 1 {
-			curLine = 1
-		}
-		a.debugger.ToggleBreakpoint(absTarget, curLine)
-		a.editor.ToggleBreakpoint(curLine)
+	if curLine < 1 {
+		curLine = 1
 	}
 
-	err := a.debugger.Start(bRes.BinaryPath, absTarget, curLine)
+	err := a.debugger.StartWithLines(bRes.BinaryPath, absTarget, a.editor.Lines, curLine)
 	if err != nil {
 		return bRes, err
 	}
