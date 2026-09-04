@@ -332,9 +332,17 @@ func main() {
 					// Alt+E: Open Edit Menu
 					app.OpenMenuAt(1)
 					continue
+				} else if ch == 's' || ch == 'S' || ch == 'ß' {
+					// Alt+S: Open Search Menu
+					app.OpenMenuAt(2)
+					continue
 				} else if ch == 'r' || ch == 'R' {
 					// Alt+R: Open Run Menu
 					app.OpenMenuAt(3)
+					continue
+				} else if ch == 'c' || ch == 'C' || ch == 'ç' {
+					// Alt+C: Open Compile Menu
+					app.OpenMenuAt(4)
 					continue
 				} else if ch == 'd' || ch == 'D' {
 					// Alt+D: Open Debug Menu
@@ -344,25 +352,17 @@ func main() {
 					// Alt+O: Open Options Menu
 					app.OpenMenuAt(6)
 					continue
+				} else if ch == 'w' || ch == 'W' || ch == '∑' {
+					// Alt+W: Open Window Menu
+					app.OpenMenuAt(7)
+					continue
 				} else if ch == 'h' || ch == 'H' {
 					// Alt+H: Open Help Menu
 					app.OpenMenuAt(8)
 					continue
-				} else if ch == 'w' || ch == 'W' || ch == '∑' {
-					// Alt+W: Watches Window
-					dispatchAction("debug_watches")
-					continue
 				} else if ch == 'n' || ch == 'N' || ch == '˜' {
 					// Alt+N: Step Over
 					dispatchAction("debug_step_over")
-					continue
-				} else if ch == 's' || ch == 'S' || ch == 'ß' {
-					// Alt+S: Step Into
-					dispatchAction("debug_step_into")
-					continue
-				} else if ch == 'c' || ch == 'C' || ch == 'ç' {
-					// Alt+C: Continue
-					dispatchAction("debug_continue")
 					continue
 				} else if ch == 'l' || ch == 'L' || ch == '¬' {
 					// Alt+L: Toggle Line Numbers

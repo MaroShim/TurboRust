@@ -86,7 +86,7 @@ c:/AntiGravity/TurboRust/
 ### 5. 인터랙티브 디버거 & Watches 창
 - `F4`: 브레이크포인트(`●`, 라인 전체 **솔리드 레드 바**)
 - `F5` / `F7` / `F8`: Debug / Continue / Trace Into / Step Over (현재 실행 라인 **솔리드 옐로우 바 `►`**)
-- `Alt+W`: 하단 Watches 윈도우 토글 (변수명, 타입, 값 실시간 감시)
+- Watches 창: 하단 Watches 윈도우 (Debug 메뉴로 토글, 변수명, 타입, 값 실시간 감시)
 
 ### 6. 볼랜드 레트로 PC 스피커 사운드 FX
 - 2.5인치 종이 콘 PC 스피커 물리 모델 (Square wave + IIR 저역 통과 필터 + Attack/Decay 엔벨로프)
@@ -102,10 +102,12 @@ c:/AntiGravity/TurboRust/
 |---|---|---|
 | **Alt + F** | **File Menu** | **File 메뉴 즉시 열기** |
 | **Alt + E** | **Edit Menu** | Edit 메뉴 즉시 열기 |
+| **Alt + S** | **Search Menu** | Search 메뉴 즉시 열기 |
 | **Alt + R** | **Run Menu** | Run 메뉴 즉시 열기 |
 | **Alt + C** | **Compile Menu** | Compile 메뉴 즉시 열기 |
 | **Alt + D** | **Debug Menu** | Debug 메뉴 즉시 열기 |
 | **Alt + O** | **Options Menu** | Options 메뉴 즉시 열기 |
+| **Alt + W** | **Window Menu** | Window 메뉴 즉시 열기 |
 | **Alt + H** | **Help Menu** | Help 메뉴 즉시 열기 |
 | **F10** | **Menu Bar** | 상단 메뉴바 전체 포커스 및 File 메뉴 열기 |
 | **F1** | Help / About | Turbo Rust 정보 팝업 |
@@ -115,7 +117,6 @@ c:/AntiGravity/TurboRust/
 | **F5** | **Debug / Continue** | 디버깅 시작 / 다음 브레이크포인트까지 계속 실행 |
 | **F7** | **Trace Into** | 한 줄씩 실행 (함수/명령 진입) |
 | **F8** | **Step Over** | 한 줄씩 실행 (함수 건너뛰기) |
-| **Alt + W** | **Watches Window** | 하단 변수 감시 창 토글 |
 | **Alt + F9** | **Compile** | "Compiling..." 모달과 함께 빌드 |
 | **F9** | Make | 빌드 실행 |
 | **Ctrl + F9** | **Run** | 빌드 후 실행 및 User Screen 표시 |

@@ -53,8 +53,9 @@ func (a *AboutDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	}
 
 	for i, l := range lines {
-		px := x + (dialogW-len([]rune(l.text)))/2
-		for j, r := range l.text {
+		runes := []rune(l.text)
+		px := x + (dialogW-len(runes))/2
+		for j, r := range runes {
 			screen.SetContent(px+j, y+2+i, r, nil, l.style)
 		}
 	}

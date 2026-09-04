@@ -60,12 +60,12 @@ func (cd *CompileDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 		ry := y + 2 + row
 		// Draw label
 		lx := x + 3
-		for i, r := range label {
+		for i, r := range []rune(label) {
 			screen.SetContent(lx+i, ry, r, nil, labelStyle)
 		}
 		// Draw value
 		vx := x + 18
-		for i, r := range val {
+		for i, r := range []rune(val) {
 			screen.SetContent(vx+i, ry, r, nil, valStyle)
 		}
 	}

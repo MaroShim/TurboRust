@@ -99,7 +99,7 @@ func NewMenuBar() *MenuBar {
 					{Label: "Trace Into", Shortcut: "F7", ActionID: "debug_step_into"},
 					{Label: "Toggle Breakpoint", Shortcut: "F4", ActionID: "debug_toggle_bp"},
 					{Label: "Stop Debugger", Shortcut: "Ctrl+F2", ActionID: "debug_stop"},
-					{Label: "Watches Window", Shortcut: "Alt+W", ActionID: "debug_watches"},
+					{Label: "Watches Window", ActionID: "debug_watches"},
 				},
 			},
 			{
