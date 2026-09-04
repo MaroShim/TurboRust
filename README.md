@@ -47,6 +47,7 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 ## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Function | Description |
+| --- | --- | --- |
 | **Alt + F** | **File Menu** | Open File menu directly |
 | **Alt + E** | **Edit Menu** | Open Edit menu directly |
 | **Alt + S** | **Search Menu** | Open Search menu directly |
