@@ -176,21 +176,39 @@ func main() {
 				editor.GotoLine(targetLine, 1)
 			})
 		case "edit_copy":
+			txt := editor.GetSelectedText()
 			if editor.CopySelection() {
 				sound.PlayBell()
+				app.SetStatusMessage(fmt.Sprintf("Copied %d characters to clipboard", len([]rune(txt))))
+			} else {
+				app.SetStatusMessage("No text selected to copy (use Shift+Arrows)")
 			}
 		case "edit_cut":
+			txt := editor.GetSelectedText()
 			if editor.CutSelection() {
 				sound.PlayBell()
+				app.SetStatusMessage(fmt.Sprintf("Cut %d characters to clipboard", len([]rune(txt))))
+			} else {
+				app.SetStatusMessage("No text selected to cut (use Shift+Arrows)")
 			}
 		case "edit_paste":
 			clip := ui.GetClipboard()
 			if clip != "" {
 				editor.PasteText(clip)
 				sound.PlayBell()
+				app.SetStatusMessage(fmt.Sprintf("Pasted %d characters from clipboard", len([]rune(clip))))
+			} else {
+				app.SetStatusMessage("Clipboard is empty")
 			}
 		case "edit_clear":
-			editor.DeleteSelection()
+			if editor.DeleteSelection() {
+				app.SetStatusMessage("Selection deleted")
+			} else {
+				app.SetStatusMessage("No text selected to clear")
+			}
+		case "edit_select_all":
+			editor.SelectAll()
+			app.SetStatusMessage("All text selected")
 		case "help_about":
 			aboutDlg.Show()
 		}
@@ -395,7 +413,23 @@ func main() {
 			}
 
 			if mod == tcell.ModCtrl {
-				if key == tcell.KeyF9 {
+				if key == tcell.KeyCtrlC {
+					// Ctrl+C: Copy
+					dispatchAction("edit_copy")
+					continue
+				} else if key == tcell.KeyCtrlX {
+					// Ctrl+X: Cut
+					dispatchAction("edit_cut")
+					continue
+				} else if key == tcell.KeyCtrlV {
+					// Ctrl+V: Paste
+					dispatchAction("edit_paste")
+					continue
+				} else if key == tcell.KeyCtrlA {
+					// Ctrl+A: Select All
+					dispatchAction("edit_select_all")
+					continue
+				} else if key == tcell.KeyF9 {
 					// Ctrl+F9: Run
 					dispatchAction("run_run")
 					continue
@@ -414,6 +448,14 @@ func main() {
 				} else if key == tcell.KeyCtrlG {
 					// Ctrl+G: Go to Line
 					dispatchAction("search_goto")
+					continue
+				} else if key == tcell.KeyInsert {
+					// Ctrl+Ins: Copy
+					dispatchAction("edit_copy")
+					continue
+				} else if key == tcell.KeyDelete {
+					// Ctrl+Del: Clear
+					dispatchAction("edit_clear")
 					continue
 				}
 			}
@@ -523,17 +565,6 @@ func main() {
 				}
 			}
 
-			if mod == tcell.ModCtrl {
-				if key == tcell.KeyInsert {
-					// Ctrl+Ins: Copy
-					dispatchAction("edit_copy")
-					continue
-				} else if key == tcell.KeyDelete {
-					// Ctrl+Del: Clear
-					dispatchAction("edit_clear")
-					continue
-				}
-			}
 
 			switch key {
 			case tcell.KeyLeft:

@@ -52,10 +52,12 @@ func NewMenuBar() *MenuBar {
 				HotIndex: 0,
 				Items: []MenuItem{
 					{Label: "Undo", Shortcut: "Alt+BkSp", ActionID: "edit_undo"},
-					{Label: "Cut", Shortcut: "Shift+Del", ActionID: "edit_cut"},
-					{Label: "Copy", Shortcut: "Ctrl+Ins", ActionID: "edit_copy"},
-					{Label: "Paste", Shortcut: "Shift+Ins", ActionID: "edit_paste"},
+					{Label: "Cut", Shortcut: "Ctrl+X", ActionID: "edit_cut"},
+					{Label: "Copy", Shortcut: "Ctrl+C", ActionID: "edit_copy"},
+					{Label: "Paste", Shortcut: "Ctrl+V", ActionID: "edit_paste"},
 					{Label: "Clear", Shortcut: "Ctrl+Del", ActionID: "edit_clear"},
+					{IsSep: true},
+					{Label: "Select All", Shortcut: "Ctrl+A", ActionID: "edit_select_all"},
 				},
 			},
 			{

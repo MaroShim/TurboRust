@@ -909,10 +909,33 @@ func (e *Editor) CutSelection() bool {
 	return false
 }
 
+// SelectAll selects all text in the editor
+func (e *Editor) SelectAll() {
+	if len(e.Lines) == 0 {
+		return
+	}
+	e.SelectActive = true
+	e.SelectStartY = 0
+	e.SelectStartX = 0
+	e.SelectEndY = len(e.Lines) - 1
+	e.SelectEndX = len([]rune(e.Lines[len(e.Lines)-1]))
+}
+
 // PasteText inserts text at current cursor position (replacing any selection)
 func (e *Editor) PasteText(text string) {
 	if text == "" {
 		return
+	}
+	if len(e.Lines) == 0 {
+		e.Lines = []string{""}
+		e.CursorY = 0
+		e.CursorX = 0
+	}
+	if e.CursorY >= len(e.Lines) {
+		e.CursorY = len(e.Lines) - 1
+	}
+	if e.CursorY < 0 {
+		e.CursorY = 0
 	}
 	if e.SelectActive {
 		e.DeleteSelection()

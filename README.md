@@ -76,9 +76,10 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 | **F10** | Menu Bar | Focus top pull-down menu bar |
 | **Alt + X** | Exit | Quit Turbo Rust |
 | **Shift + Arrow Keys** | **Select Block** | Select/highlight text block |
-| **Ctrl + Ins** | **Copy** | Copy selected block to clipboard (`Edit ➔ Copy`) |
-| **Shift + Del** | **Cut** | Cut selected block (`Edit ➔ Cut`) |
-| **Shift + Ins** | **Paste** | Paste clipboard contents at cursor (`Edit ➔ Paste`) |
+| **Ctrl + A** | **Select All** | Select all buffer text (`Edit ➔ Select All`) |
+| **Ctrl + C** / **Ctrl + Ins** | **Copy** | Copy selected block to clipboard (`Edit ➔ Copy`) |
+| **Ctrl + X** / **Shift + Del** | **Cut** | Cut selected block to clipboard (`Edit ➔ Cut`) |
+| **Ctrl + V** / **Shift + Ins** | **Paste** | Paste clipboard contents at cursor (`Edit ➔ Paste`) |
 | **Esc** | Close | Close active modal/dialog or clear selection |
 
 ---
@@ -169,9 +170,10 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 | **F10** | Menu Bar | 상단 풀다운 메뉴바 포커스 토글 |
 | **Alt + X** | Exit | Turbo Rust 종료 |
 | **Shift + 방향키** | **Select Block** | 텍스트 영역 블록 선택 (하이라이트) |
-| **Ctrl + Ins** | **Copy** | 선택한 블록 클립보드에 복사 (`Edit ➔ Copy`) |
-| **Shift + Del** | **Cut** | 선택한 블록 잘라내기 (`Edit ➔ Cut`) |
-| **Shift + Ins** | **Paste** | 클립보드 내용 커서 위치에 붙여넣기 (`Edit ➔ Paste`) |
+| **Ctrl + A** | **Select All** | 버퍼 전체 텍스트 블록 선택 (`Edit ➔ Select All`) |
+| **Ctrl + C** / **Ctrl + Ins** | **Copy** | 선택한 블록 클립보드에 복사 (`Edit ➔ Copy`) |
+| **Ctrl + X** / **Shift + Del** | **Cut** | 선택한 블록 잘라내어 클립보드에 저장 (`Edit ➔ Cut`) |
+| **Ctrl + V** / **Shift + Ins** | **Paste** | 클립보드 내용 커서 위치에 붙여넣기 (`Edit ➔ Paste`) |
 | **Esc** | Close | 활성 메뉴/팝업 다이얼로그 닫기, 선택 해제 |
 
 ---

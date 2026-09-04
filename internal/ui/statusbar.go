@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"time"
+
+	"github.com/gdamore/tcell/v2"
+)
 
 // StatusItem represents a shortcut key action on the bottom bar
 type StatusItem struct {
@@ -11,7 +15,9 @@ type StatusItem struct {
 
 // StatusBar renders the classic Borland bottom hotkey strip
 type StatusBar struct {
-	Items []StatusItem
+	Items   []StatusItem
+	Message string
+	MsgTime time.Time
 }
 
 func NewStatusBar() *StatusBar {
@@ -29,6 +35,11 @@ func NewStatusBar() *StatusBar {
 	}
 }
 
+func (sb *StatusBar) SetMessage(msg string) {
+	sb.Message = msg
+	sb.MsgTime = time.Now()
+}
+
 // Draw renders the status bar on the bottom row
 func (sb *StatusBar) Draw(screen tcell.Screen, y, width int) {
 	bgStyle := tcell.StyleDefault.Background(ColorStatusBarBg).Foreground(ColorStatusBarFg)
@@ -37,6 +48,26 @@ func (sb *StatusBar) Draw(screen tcell.Screen, y, width int) {
 	// Clear row
 	for x := 0; x < width; x++ {
 		screen.SetContent(x, y, ' ', nil, bgStyle)
+	}
+
+	// If there is an active status message within 3 seconds, display it prominently
+	if sb.Message != "" && time.Since(sb.MsgTime) < 3*time.Second {
+		tagStyle := tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorWhite).Bold(true)
+		msgStyle := tcell.StyleDefault.Background(ColorStatusBarBg).Foreground(tcell.ColorYellow).Bold(true)
+		tag := " [Turbo] "
+		xPos := 1
+		for _, r := range tag {
+			screen.SetContent(xPos, y, r, nil, tagStyle)
+			xPos++
+		}
+		xPos++
+		for _, r := range sb.Message {
+			if xPos < width-1 {
+				screen.SetContent(xPos, y, r, nil, msgStyle)
+				xPos++
+			}
+		}
+		return
 	}
 
 	xPos := 1

@@ -178,3 +178,48 @@ func TestEditorSelectionAndClipboard(t *testing.T) {
 		t.Errorf("expected line after paste 'hello world go', got %q", ed.Lines[0])
 	}
 }
+
+func TestClipboardSystem(t *testing.T) {
+	testStr := "TurboRustClipboardTest_12345"
+	SetClipboard(testStr)
+	got := GetClipboard()
+	t.Logf("Set %q, Got %q", testStr, got)
+	if got != testStr {
+		t.Errorf("expected %q, got %q", testStr, got)
+	}
+}
+
+func TestCutAndPasteWorkflow(t *testing.T) {
+	ed := NewEditor("", 1)
+	ed.Lines = []string{"Hello World from TurboRust"}
+	ed.CursorY = 0
+	ed.CursorX = 6
+
+	// Select "World"
+	ed.StartSelection()
+	ed.CursorX = 11
+	ed.UpdateSelection()
+
+	// Cut "World"
+	if !ed.CutSelection() {
+		t.Fatalf("CutSelection failed")
+	}
+	if ed.Lines[0] != "Hello  from TurboRust" {
+		t.Errorf("expected 'Hello  from TurboRust', got %q", ed.Lines[0])
+	}
+
+	// Verify clipboard has "World"
+	clip := GetClipboard()
+	if clip != "World" {
+		t.Errorf("expected clipboard 'World', got %q", clip)
+	}
+
+	// Move to end and Paste
+	ed.CursorX = len([]rune(ed.Lines[0]))
+	ed.PasteText(clip)
+
+	expected := "Hello  from TurboRustWorld"
+	if ed.Lines[0] != expected {
+		t.Errorf("expected %q, got %q", expected, ed.Lines[0])
+	}
+}

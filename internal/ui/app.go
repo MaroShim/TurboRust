@@ -112,6 +112,10 @@ func (a *App) GetMenuBar() *MenuBar {
 	return a.menuBar
 }
 
+func (a *App) SetStatusMessage(msg string) {
+	a.statusBar.SetMessage(msg)
+}
+
 func (a *App) ToggleMenu() {
 	if a.menuBar.Active {
 		a.menuBar.Close()
