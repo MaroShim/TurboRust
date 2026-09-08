@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -41,14 +42,14 @@ type RunResult struct {
 	Completed bool
 }
 
-// Regex for rustc error format
+// Regex for rustc error format (supports Windows drive letters C:\...)
 // 1. Short format: file.rs:line:col: error[...]: message
-var shortErrRegex = regexp.MustCompile(`(?m)^([^:\n\r]+):(\d+):(\d+):\s*(error(?:\[\w+\])?|warning):\s*(.+)$`)
+var shortErrRegex = regexp.MustCompile(`(?m)^((?:[a-zA-Z]:)?[^:\n\r]+):(\d+):(\d+):\s*(error(?:\[\w+\])?|warning):\s*(.+)$`)
 
 // 2. Standard rustc format:
 // error[...]: message
 //   --> file.rs:line:col
-var stdLocRegex = regexp.MustCompile(`(?m)^\s*-->\s*([^:\n\r]+):(\d+):(\d+)`)
+var stdLocRegex = regexp.MustCompile(`(?m)^\s*-->\s*((?:[a-zA-Z]:)?[^:\n\r]+):(\d+):(\d+)`)
 var stdMsgRegex = regexp.MustCompile(`(?m)^(error(?:\[\w+\])?|warning):\s*(.+)$`)
 
 // CountLines counts total lines of Rust code in the specified target
@@ -196,7 +197,7 @@ func Build(targetPath string) *BuildResult {
 	}
 
 	ext := ""
-	if os.PathSeparator == '\\' {
+	if runtime.GOOS == "windows" {
 		ext = ".exe"
 	}
 	tmpBin := filepath.Join(os.TempDir(), fmt.Sprintf("turborust_bin_%d%s", time.Now().UnixNano(), ext))
