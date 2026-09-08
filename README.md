@@ -23,10 +23,10 @@ Implemented in Go for instant native performance and zero-dependency terminal re
   * Lifetimes (`'a`, `'static`)
   * Literals (strings, raw strings `r#"..."#`, chars, hex/binary/decimal numbers) and comments (`//`, `/* */`)
 
-* **Compiling Modal Dialog & Diagnostics**:
+* **Compiling Modal Dialog & Cargo / Multi-File Project Support**:
   * Authentic Borland-style "Compiling..." modal dialog displaying target file, total lines, error/warning count, and elapsed build time
-  * Automatic `rustc` / `cargo build` integration with compiler error diagnostics (`file.rs:line:col`)
-  * **Instant jump to error line and column in the editor** upon build failure
+  * **Cargo & Multi-File Module Support**: Automatically detects `Cargo.toml` projects to run `cargo build`, parses output binary from `target/debug/`, and compiles standalone `mod foo;` multi-file projects seamlessly
+  * **Instant jump to error line and column in the editor** (even across different files) upon build failure
 
 * **Alt+F5 User Screen**:
   * The hallmark Turbo C feature: switch to a full-screen DOS console view to inspect program execution output, and return to the IDE with any keypress

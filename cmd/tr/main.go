@@ -249,6 +249,9 @@ func main() {
 					compileDlg.Hide()
 					if compileDlg.Result != nil && len(compileDlg.Result.Errors) > 0 {
 						errListDlg.Show(compileDlg.Result.Errors, func(errItem compiler.CompileError) {
+							if errItem.File != "" && errItem.File != editor.FilePath {
+								_ = editor.LoadFile(errItem.File)
+							}
 							editor.GotoLine(errItem.Line, errItem.Column)
 						})
 					}

@@ -52,7 +52,22 @@ var shortErrRegex = regexp.MustCompile(`(?m)^((?:[a-zA-Z]:)?[^:\n\r]+):(\d+):(\d
 var stdLocRegex = regexp.MustCompile(`(?m)^\s*-->\s*((?:[a-zA-Z]:)?[^:\n\r]+):(\d+):(\d+)`)
 var stdMsgRegex = regexp.MustCompile(`(?m)^(error(?:\[\w+\])?|warning):\s*(.+)$`)
 
-// CountLines counts total lines of Rust code in the specified target
+// GetCargoPackageName reads the package name from Cargo.toml
+func GetCargoPackageName(cargoRoot string) string {
+	cargoToml := filepath.Join(cargoRoot, "Cargo.toml")
+	data, err := os.ReadFile(cargoToml)
+	if err != nil {
+		return ""
+	}
+	re := regexp.MustCompile(`(?m)^\s*name\s*=\s*["']([^"']+)["']`)
+	m := re.FindStringSubmatch(string(data))
+	if len(m) >= 2 {
+		return strings.TrimSpace(m[1])
+	}
+	return ""
+}
+
+// CountLines counts total lines of Rust code in the specified target, package, or Cargo project
 func CountLines(targetPath string) int {
 	total := 0
 	info, err := os.Stat(targetPath)
@@ -60,35 +75,85 @@ func CountLines(targetPath string) int {
 		return 0
 	}
 
-	if !info.IsDir() {
-		content, err := os.ReadFile(targetPath)
-		if err == nil {
-			total += bytes.Count(content, []byte("\n")) + 1
-		}
+	if info.IsDir() {
+		_ = filepath.Walk(targetPath, func(path string, fi os.FileInfo, err error) error {
+			if err == nil && !fi.IsDir() && strings.HasSuffix(path, ".rs") {
+				content, err := os.ReadFile(path)
+				if err == nil {
+					total += bytes.Count(content, []byte("\n")) + 1
+				}
+			}
+			return nil
+		})
 		return total
 	}
 
-	_ = filepath.Walk(targetPath, func(path string, fi os.FileInfo, err error) error {
-		if err == nil && !fi.IsDir() && strings.HasSuffix(path, ".rs") {
-			content, err := os.ReadFile(path)
-			if err == nil {
-				total += bytes.Count(content, []byte("\n")) + 1
+	absTarget, _ := filepath.Abs(targetPath)
+	dir := filepath.Dir(absTarget)
+
+	// If inside a Cargo project, count all .rs files in cargoRoot (excluding target/)
+	if cargoRoot, hasCargo := FindCargoRoot(absTarget); hasCargo {
+		_ = filepath.Walk(cargoRoot, func(path string, fi os.FileInfo, err error) error {
+			if err == nil && !fi.IsDir() && strings.HasSuffix(path, ".rs") {
+				if !strings.Contains(path, string(filepath.Separator)+"target"+string(filepath.Separator)) {
+					content, err := os.ReadFile(path)
+					if err == nil {
+						total += bytes.Count(content, []byte("\n")) + 1
+					}
+				}
+			}
+			return nil
+		})
+		if total > 0 {
+			return total
+		}
+	}
+
+	// Standalone multi-file directory
+	entries, err := os.ReadDir(dir)
+	if err == nil {
+		fileCount := 0
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".rs") {
+				content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+				if err == nil {
+					total += bytes.Count(content, []byte("\n")) + 1
+					fileCount++
+				}
 			}
 		}
-		return nil
-	})
+		if fileCount > 0 {
+			return total
+		}
+	}
+
+	content, err := os.ReadFile(targetPath)
+	if err == nil {
+		total = bytes.Count(content, []byte("\n")) + 1
+	}
 	return total
 }
 
-// ParseErrors extracts CompileError list from compiler output
-func ParseErrors(output string) []CompileError {
+// ParseErrors extracts CompileError list from compiler output, resolving relative paths with workDir
+func ParseErrors(output string, workDirs ...string) []CompileError {
 	var errs []CompileError
+	workDir := ""
+	if len(workDirs) > 0 {
+		workDir = workDirs[0]
+	}
+
+	resolvePath := func(f string) string {
+		if !filepath.IsAbs(f) && workDir != "" {
+			return filepath.Clean(filepath.Join(workDir, f))
+		}
+		return f
+	}
 
 	// First attempt short format matches
 	shortMatches := shortErrRegex.FindAllStringSubmatch(output, -1)
 	if len(shortMatches) > 0 {
 		for _, m := range shortMatches {
-			file := strings.TrimSpace(m[1])
+			file := resolvePath(strings.TrimSpace(m[1]))
 			line, _ := strconv.Atoi(m[2])
 			col, _ := strconv.Atoi(m[3])
 			level := "error"
@@ -127,7 +192,7 @@ func ParseErrors(output string) []CompileError {
 
 		locMatch := stdLocRegex.FindStringSubmatch(line)
 		if len(locMatch) > 0 {
-			file := strings.TrimSpace(locMatch[1])
+			file := resolvePath(strings.TrimSpace(locMatch[1]))
 			lNum, _ := strconv.Atoi(locMatch[2])
 			colNum, _ := strconv.Atoi(locMatch[3])
 
@@ -186,12 +251,8 @@ func Build(targetPath string) *BuildResult {
 	lines := CountLines(targetPath)
 	res.LinesCompiled = lines
 
-	cargoRoot, hasCargo := FindCargoRoot(targetPath)
-	_ = cargoRoot
-	_ = hasCargo
-
-	// For fast single file execution, prefer rustc with short error format
-	dir := filepath.Dir(targetPath)
+	absTarget, _ := filepath.Abs(targetPath)
+	dir := filepath.Dir(absTarget)
 	if dir == "" {
 		dir = "."
 	}
@@ -200,19 +261,28 @@ func Build(targetPath string) *BuildResult {
 	if runtime.GOOS == "windows" {
 		ext = ".exe"
 	}
-	tmpBin := filepath.Join(os.TempDir(), fmt.Sprintf("turborust_bin_%d%s", time.Now().UnixNano(), ext))
-	res.BinaryPath = tmpBin
 
-	// Use rustc for single .rs file or if targetPath is a .rs file
+	cargoRoot, hasCargo := FindCargoRoot(absTarget)
 	var cmd *exec.Cmd
-	if strings.HasSuffix(targetPath, ".rs") {
-		cmd = exec.Command("rustc", "--error-format=short", "-g", "-o", tmpBin, filepath.Base(targetPath))
-		cmd.Dir = dir
-	} else if hasCargo {
+	workDir := dir
+
+	if hasCargo {
+		// Cargo project has top priority
+		workDir = cargoRoot
 		cmd = exec.Command("cargo", "build", "--message-format=short")
 		cmd.Dir = cargoRoot
+
+		pkgName := GetCargoPackageName(cargoRoot)
+		if pkgName == "" {
+			pkgName = filepath.Base(cargoRoot)
+		}
+		res.BinaryPath = filepath.Join(cargoRoot, "target", "debug", pkgName+ext)
 	} else {
-		cmd = exec.Command("rustc", "--error-format=short", "-g", "-o", tmpBin, targetPath)
+		// Single or multi-file standalone Rust project
+		workDir = dir
+		tmpBin := filepath.Join(os.TempDir(), fmt.Sprintf("turborust_bin_%d%s", time.Now().UnixNano(), ext))
+		res.BinaryPath = tmpBin
+		cmd = exec.Command("rustc", "--error-format=short", "-g", "-o", tmpBin, filepath.Base(absTarget))
 		cmd.Dir = dir
 	}
 
@@ -226,7 +296,7 @@ func Build(targetPath string) *BuildResult {
 
 	if err != nil {
 		res.Success = false
-		res.Errors = ParseErrors(res.RawOutput)
+		res.Errors = ParseErrors(res.RawOutput, workDir)
 		for _, e := range res.Errors {
 			if e.Level == "error" {
 				res.ErrorCount++
@@ -248,8 +318,7 @@ func Build(targetPath string) *BuildResult {
 		}
 	} else {
 		res.Success = true
-		// Parse warnings if any
-		warnings := ParseErrors(res.RawOutput)
+		warnings := ParseErrors(res.RawOutput, workDir)
 		for _, w := range warnings {
 			if w.Level == "warning" {
 				res.WarningCount++
@@ -258,6 +327,12 @@ func Build(targetPath string) *BuildResult {
 	}
 
 	return res
+}
+
+// BuildDebug compiles target Rust file or Cargo package with debug symbols
+func BuildDebug(targetPath string) *BuildResult {
+	// Build() already creates debug binaries (-g for rustc, cargo build produces debug by default)
+	return Build(targetPath)
 }
 
 // Run executes the compiled binary and returns output

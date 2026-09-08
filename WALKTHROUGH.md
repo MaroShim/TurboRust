@@ -94,6 +94,12 @@ c:/AntiGravity/TurboRust/
 - 컴파일 실패 시: 묵직한 저음 버즈 (196Hz)
 - 브레이크포인트 적중 시: 아날로그 피에조 클릭 사운드 (880Hz)
 
+### 7. Cargo 및 다중 모듈 프로젝트 지원
+- **Cargo 프로젝트 자동 탐색 (`FindCargoRoot`)**: 상위 디렉터리에서 `Cargo.toml`을 감지하여 최우선으로 `cargo build` 실행
+- **바이너리 자동 감지**: `Cargo.toml`의 패키지명을 파싱하여 `target/debug/<binary>` 위치를 자동으로 찾아내어 `Ctrl+F9` 실행 및 디버거에 연동
+- **다중 파일 라인 수 집계 (`CountLines`)**: `src/` 및 모듈 내의 모든 `.rs` 파일 줄 수를 합산하여 "Compiling..." 팝업에 표시
+- **에러 발생 파일 자동 열기**: 다른 파일에서 컴파일 에러 발생 시 에디터가 해당 파일(`foo.rs`)을 자동 로드하고 에러 위치로 점프
+
 ---
 
 ## ⌨️ 주요 단축키 요약
@@ -153,3 +159,4 @@ cd c:\AntiGravity\TurboRust
 .\bin\tr.exe examples\hello.rs
 .\bin\tr.exe examples\fibonacci.rs
 ```
+
