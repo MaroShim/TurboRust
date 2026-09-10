@@ -1,162 +1,87 @@
-# Turbo Rust (`tr`) 프로젝트 구축 및 워크스루 🚀
+# Turbo IDE 제품군 개선 완료 보고서
 
-볼랜드 Turbo Vision TUI 아키텍처와 감성을 완벽하게 계승하면서, **구현 언어는 Go로 구축하고 개발 대상 타깃 언어를 Rust로 전면 특화**한 레트로 TUI IDE **Turbo Rust (`tr`)** 구축을 완료하였습니다.
-
----
-
-## 📸 프로젝트 핵심 아키텍처 및 구현 컴포넌트
-
-```
-c:/AntiGravity/TurboRust/
-├── Cargo.toml                  # (참조/연동용)
-├── go.mod                      # Go 모듈 정의 (tr, go 1.26+)
-├── go.sum                      # 의존성 체크섬
-├── README.md                   # Turbo Rust 공식 영문/국문 안내서
-├── WALKTHROUGH.md              # 프로젝트 워크스루 문서
-├── cmd/
-│   └── tr/
-│       └── main.go             # IDE 진입점, 이벤트 루프, 단축키 디스패처
-├── examples/
-│   ├── hello.rs                # 기본 출력 예제
-│   └── fibonacci.rs            # 함수 및 반복문 예제
-└── internal/
-    ├── compiler/
-    │   ├── runner.go           # rustc 및 cargo 빌드/실행/에러 파서
-    │   └── runner_test.go      # 단위 테스트 및 실제 rustc 통합 테스트
-    ├── debugger/
-    │   ├── debugger.go         # 브레이크포인트, 실행 포인터, 변수 Watches 엔진
-    │   └── debugger_test.go    # 디버거 세션 및 브레이크포인트 테스트
-    ├── sound/
-    │   └── sound.go            # 2.5인치 종이 콘 PC 스피커 물리 모델 사운드 합성기
-    ├── syntax/
-    │   ├── rust_highlighter.go # Rust 2021/2024 구문 강조기
-    │   └── rust_highlighter_test.go
-    └── ui/
-        ├── app.go              # UI 애플리케이션 상태 컨트롤러
-        ├── clipboard.go        # OS 및 내부 클립보드 브리지
-        ├── editor.go           # 시그니처 터보 블루 에디터 버퍼
-        ├── editor_test.go      # 에디터 조작 및 블록 선택 테스트
-        ├── menubar.go          # 상단 볼랜드 풀다운 메뉴바
-        ├── statusbar.go        # 하단 단축키 바
-        ├── theme.go            # 볼랜드 색상 팔레트 및 이중선 박스 드로잉 기호
-        ├── userscreen.go       # Alt+F5 전체화면 DOS 콘솔 뷰어
-        ├── watchwindow.go      # Alt+W 변수 감시 윈도우
-        ├── window.go           # 프레임, 다이얼로그 박스, 그림자 드로잉
-        └── dialogs/
-            ├── about.go        # Turbo Rust 정보 대화상자
-            ├── compile.go      # "Compiling..." 통계 팝업 모달
-            ├── errorlist.go    # 컴파일 에러 목록 및 에디터 즉시 점프
-            ├── find.go         # 문자열 검색 대화상자
-            ├── gotoline.go     # 특정 줄 번호 이동
-            ├── openfile.go     # .rs 필터링 파일 브라우저
-            └── savefile.go     # 파일 저장 대화상자
-```
+대상 프로젝트:
+- **Turbo Go (`tg`)**: `/Users/maro/Projects/tg`
+- **Turbo Rust (`tr`)**: `/Users/maro/Projects/tr`
+- **Turbo FORTRAN 77 (`tf77`)**: `/Users/maro/Projects/tf77`
 
 ---
 
-## 🛠️ 주요 기능 상세
+## 1. 키보드 커서 시인성 개선 (Cursor Visibility Fix)
 
-### 1. Classic Borland Turbo Vision UI
-- **시그니처 블루 캔버스 (`#0000A8`)**와 정교한 이중선 프레임 (`╔═╗`, `║ ║`, `╚═╝`)
-- 입체 텍스트 드롭 섀도우(오른쪽 2칸, 아래 1행 그림자 효과)
-- 윈도우 헤더: `[■] 1 NONAME00.RS [▲]` (닫기/최대화 버튼 및 윈도우 번호)
-- 우측 수직 스크롤 트랙(`░`), 엄지 블록(`█`), 상/하 화살표(`▲`, `▼`)
-- 상단 풀다운 메뉴바 (`File`, `Edit`, `Search`, `Run`, `Compile`, `Debug`, `Options`, `Window`, `Help`)
-- 하단 볼랜드 핫키 바 (`F1 Help`, `F2 Save`, `F3 Open`, `Alt+F9 Compile`, `F9 Make`, `Ctrl+F9 Run`, `Alt+F5 User`, `F10 Menu`)
+### 문제 배경
+- 볼랜드 정통 에디터 배경색인 짙은 파란색(Borland Blue, `#0000A8`) 환경에서 터미널 기본 하드웨어 커서(특히 macOS Terminal.app, iTerm2, VS Code 통합 터미널 등)가 검은색 또는 1픽셀 두께의 얇은 선으로 렌더링되어 커서의 현재 위치 파악이 어려웠습니다.
 
-### 2. Rust 전용 구문 강조기 (Syntax Highlighter)
-- **Rust 키워드**: `fn`, `let`, `mut`, `match`, `if`, `else`, `loop`, `while`, `for`, `in`, `return`, `struct`, `enum`, `impl`, `trait`, `pub`, `use`, `mod`, `crate`, `type`, `const`, `static`, `where`, `async`, `await` 등
-- **기본 및 표준 타입**: `i8`~`i128`, `u8`~`u128`, `isize`, `usize`, `f32`, `f64`, `bool`, `char`, `str`, `String`, `Option`, `Result`, `Vec`, `Box`, `Rc`, `Arc` 등
-- **매크로**: `println!`, `eprintln!`, `format!`, `vec!`, `panic!`, `assert!`, `todo!` 등 `!` 접미사
-- **라이프타임**: `'a`, `'static`
-- **리터럴**: Raw string (`r#"..."#`), 일반 문자열, 바이트 문자열, 진법별 숫자(16진수, 2진수, 부동소수점)
-- **주석 및 속성**: 라인 주석(`//`), 멀티라인 블록 주석(`/* */`), 속성(`#[...]`)
+### 2단계 하이브리드 커서 시인성 솔루션 적용
+1. **터미널 하드웨어 커서 스타일 & 색상 제어**:
+   - `tcell.Screen.SetCursorStyle(tcell.CursorStyleBlinkingBlock, tcell.ColorYellow)` 적용.
+   - VT100 / xterm 확장 ANSI 이스케이프 시퀀스 출력:
+     - `\x1b]12;#FFFF00\x07` (OSC 12: 커서 색상을 밝은 노란색 `#FFFF00`으로 변경)
+     - `\x1b[1 q` (DECSCUSR 1: 블랭킹 블록 커서)
+   - 앱 종료(`app.Stop()`) 시 `\x1b]112\x07\x1b[0 q`를 전송하여 사용자 터미널의 원래 커서 색상과 모양으로 안전하게 복원.
 
-### 3. 컴파일러 & 에러 진단 파싱
-- **단일 파일**: `rustc --error-format=short -g -o <bin> <file.rs>` 초고속 컴파일
-- **Cargo 프로젝트 자동 감지**: 상위 경로에 `Cargo.toml`이 있으면 `cargo build` 연동
-- **에러 파싱 & 즉시 점프**: 컴파일 실패 시 파일명, 줄 번호, 열 번호, 에러 메시지를 파싱하여 에러 목록 팝업을 띄우고, 선택 시 **에디터 해당 줄과 컬럼으로 커서 즉시 점프**
-- **볼랜드 "Compiling..." 모달**: Main file, rustc -> binary, Total lines, Errors, Warnings, Elapsed Time 표시
+2. **소프트웨어 에디터 버퍼 커서 하이라이트 (`editor.Draw`)**:
+   - 하드웨어 이스케이프 시퀀스를 지원하지 않는 환경에서도 100% 확실한 시인성을 보장하도록 에디터 버퍼의 커서 셀 자체를 **밝은 노란색 배경(`ColorEditorCursor` / `#FFFF00`) + 검은색 텍스트(`tcell.ColorBlack`)**로 직접 렌더링.
+   - 탭 문자(`\t`) 확장 및 멀티바이트 룬 폭(`runewidth.RuneWidth`)을 정밀 계산하여 실제 화면 좌표(`actualCursorScreenX`)에 커서 셀 배치.
+   - 빈 줄이나 라인 끝(EOL) 너머 공백 위치에서도 노란색 블록 커서 셀 표시.
+   - 거터(Gutter) 라인 번호 영역에서 현재 커서가 위치한 행을 **밝은 노란색 굵은 글씨**와 **`▸` 마커**(`▸ 12 `)로 강조 표시.
 
-### 4. Alt+F5 User Screen (DOS 콘솔 실행 화면)
-- `Ctrl+F9` 실행 시 결과 화면을 별도의 전체화면 콘솔 버퍼에 캡처하여 표시
-- `[ Turbo Rust User Screen (Alt+F5) - Press any key to return to IDE ]` 배너
-- 아무 키나 누르면 즉시 이전 에디터 상태로 복귀
-
-### 5. 인터랙티브 디버거 & Watches 창
-- `F4`: 브레이크포인트(`●`, 라인 전체 **솔리드 레드 바**)
-- `F5` / `F7` / `F8`: Debug / Continue / Trace Into / Step Over (현재 실행 라인 **솔리드 옐로우 바 `►`**)
-- Watches 창: 하단 Watches 윈도우 (Debug 메뉴로 토글, 변수명, 타입, 값 실시간 감시)
-
-### 6. 볼랜드 레트로 PC 스피커 사운드 FX
-- 2.5인치 종이 콘 PC 스피커 물리 모델 (Square wave + IIR 저역 통과 필터 + Attack/Decay 엔벨로프)
-- 컴파일 성공 시: 경쾌한 2단 상승 비프 (740Hz ➔ 1108Hz)
-- 컴파일 실패 시: 묵직한 저음 버즈 (196Hz)
-- 브레이크포인트 적중 시: 아날로그 피에조 클릭 사운드 (880Hz)
-
-### 7. Cargo 및 다중 모듈 프로젝트 지원
-- **Cargo 프로젝트 자동 탐색 (`FindCargoRoot`)**: 상위 디렉터리에서 `Cargo.toml`을 감지하여 최우선으로 `cargo build` 실행
-- **바이너리 자동 감지**: `Cargo.toml`의 패키지명을 파싱하여 `target/debug/<binary>` 위치를 자동으로 찾아내어 `Ctrl+F9` 실행 및 디버거에 연동
-- **다중 파일 라인 수 집계 (`CountLines`)**: `src/` 및 모듈 내의 모든 `.rs` 파일 줄 수를 합산하여 "Compiling..." 팝업에 표시
-- **에러 발생 파일 자동 열기**: 다른 파일에서 컴파일 에러 발생 시 에디터가 해당 파일(`foo.rs`)을 자동 로드하고 에러 위치로 점프
+3. **다이얼로그 및 모달 포커스 관리**:
+   - 텍스트 입력 다이얼로그(`FindDialog`, `SaveFileDialog`, `GotoLineDialog`): 텍스트 입력 필드에 노란색 커서 블록 표시 및 `screen.ShowCursor(curX, curY)` 연동.
+   - 비입력/조회 다이얼로그(`AboutDialog`, `CompileDialog`, `ErrorListDialog`, `OpenFileDialog`, `SearchResultsDialog`): `IsVisible() bool` 인터페이스 구현 및 `screen.HideCursor()` 호출로 불필요한 커서 숨김 처리.
+   - 메인 루프 렌더링 시 모달 다이얼로그나 메뉴바가 활성화된 경우 에디터 커서를 숨겨 포커스 혼선 방지.
 
 ---
 
-## ⌨️ 주요 단축키 요약
+## 2. 멀티 파일 프로젝트 심볼 검색 및 정의 이동 (Go to Definition)
 
-| 단축키 | 기능 | 설명 |
-|---|---|---|
-| **Alt + F** | **File Menu** | **File 메뉴 즉시 열기** |
-| **Alt + E** | **Edit Menu** | Edit 메뉴 즉시 열기 |
-| **Alt + S** | **Search Menu** | Search 메뉴 즉시 열기 |
-| **Alt + R** | **Run Menu** | Run 메뉴 즉시 열기 |
-| **Alt + C** | **Compile Menu** | Compile 메뉴 즉시 열기 |
-| **Alt + D** | **Debug Menu** | Debug 메뉴 즉시 열기 |
-| **Alt + O** | **Options Menu** | Options 메뉴 즉시 열기 |
-| **Alt + W** | **Window Menu** | Window 메뉴 즉시 열기 |
-| **Alt + H** | **Help Menu** | Help 메뉴 즉시 열기 |
-| **F10** | **Menu Bar** | 상단 메뉴바 전체 포커스 및 File 메뉴 열기 |
-| **F1** | Help / About | Turbo Rust 정보 팝업 |
-| **F2** | Save | 현재 버퍼 저장 / 다른 이름으로 저장 |
-| **F3** | Open | 파일 브라우저 (.rs 필터링) |
-| **F4** | **Breakpoint** | 브레이크포인트 설정/해제 (레드 바 `●`) |
-| **F5** | **Debug / Continue** | 디버깅 시작 / 다음 브레이크포인트까지 계속 실행 |
-| **F7** | **Trace Into** | 한 줄씩 실행 (함수/명령 진입) |
-| **F8** | **Step Over** | 한 줄씩 실행 (함수 건너뛰기) |
-| **Alt + F9** | **Compile** | "Compiling..." 모달과 함께 빌드 |
-| **F9** | Make | 빌드 실행 |
-| **Ctrl + F9** | **Run** | 빌드 후 실행 및 User Screen 표시 |
-| **Alt + F5** | **User Screen** | 프로그램 실행 결과 화면 토글 |
-| **Alt + L** | Line Numbers | 줄 번호 거터 On/Off (`F6`) |
-| **Alt + G** | Go to Line | 특정 줄 번호로 이동 (`Ctrl+G`) |
-| **Ctrl + F** | Find | 문자열 검색 |
-| **Ctrl + L** | Search Again | 다음 찾기 |
-| **Alt + X** | Exit | Turbo Rust 종료 |
+### 1. 커서 위치 식별자 단어 자동 감지 (`GetWordUnderCursor`)
+- 에디터 버퍼의 현재 커서(`CursorX`, `CursorY`) 위치에서 식별자 문자(`[a-zA-Z0-9_]`)를 좌우로 탐색하여 단어를 자동 추출.
+- `Ctrl+F` (Find), `Alt+F3` (Find in Project), `F12` (Go to definition) 실행 시 검색 대상 단어로 자동 채움.
+
+### 2. 정의로 이동 (`F12` / Go to Definition)
+- 에디터에서 함수명, 타입명, 서브루틴명 위에 커서를 두고 **`F12`**를 누르면, 프로젝트 내 모든 소스 파일을 스캔하여 정의된 위치로 즉시 이동.
+- 정의가 다른 파일에 존재하는 경우, 자동으로 해당 파일을 에디터에 로드한 후 정확한 줄 번호(`Line`)와 컬럼(`Column`)으로 커서 이동.
+
+### 3. 프로젝트 전체 검색 (`Alt+F3` / Find in Project)
+- `Search ➔ Find in project...` (`Alt+F3`) 실행 시 대소문자 구분 옵션을 지원하며 전체 소스 파일 검색.
+- 검색 결과 창(`SearchResultsDialog`)에서 화살표 키로 탐색 및 `Enter` 입력으로 해당 위치 점프.
 
 ---
 
-## 🧪 검증 결과
+## 프로젝트별 수정 파일 내역
 
-1. **단위 테스트**:
-   - `go test ./...` ➔ 모든 테스트 패키지(`internal/syntax`, `internal/compiler`, `internal/debugger`, `internal/ui`) 100% PASS
-2. **실제 rustc 통합 컴파일 & 실행 테스트**:
-   - `internal/compiler/runner_test.go`에서 `rustc`로 `examples/hello.rs`를 컴파일하고 바이너리 실행 결과 출력 캡처 확인 (PASS, 2.05s)
-3. **바이너리 빌드**:
-   - `go build -o bin/tr.exe ./cmd/tr` ➔ 오류 없이 `bin/tr.exe` 성공적으로 생성
+| 프로젝트 | 수정 파일 |
+| :--- | :--- |
+| **`tg` (Turbo Go)** | `internal/ui/app.go`<br>`internal/ui/editor.go`<br>`internal/ui/dialogs/find.go`<br>`internal/ui/dialogs/savefile.go`<br>`internal/ui/dialogs/gotoline.go`<br>`internal/ui/dialogs/about.go`<br>`internal/ui/dialogs/compile.go`<br>`internal/ui/dialogs/errorlist.go`<br>`internal/ui/dialogs/openfile.go`<br>`internal/ui/dialogs/search_results.go`<br>`cmd/tg/main.go` |
+| **`tr` (Turbo Rust)** | `internal/ui/app.go`<br>`internal/ui/editor.go`<br>`internal/ui/dialogs/find.go`<br>`internal/ui/dialogs/savefile.go`<br>`internal/ui/dialogs/gotoline.go`<br>`internal/ui/dialogs/about.go`<br>`internal/ui/dialogs/compile.go`<br>`internal/ui/dialogs/errorlist.go`<br>`internal/ui/dialogs/openfile.go`<br>`internal/ui/dialogs/search_results.go`<br>`cmd/tr/main.go` |
+| **`tf77` (Turbo FORTRAN 77)** | `internal/ui/app.go`<br>`internal/ui/editor.go`<br>`internal/ui/dialogs/find.go`<br>`internal/ui/dialogs/savefile.go`<br>`internal/ui/dialogs/gotoline.go`<br>`internal/ui/dialogs/about.go`<br>`internal/ui/dialogs/compile.go`<br>`internal/ui/dialogs/errorlist.go`<br>`internal/ui/dialogs/openfile.go`<br>`internal/ui/dialogs/search_results.go`<br>`cmd/tf77/main.go` |
 
 ---
 
-## 🚀 실행 가이드
+## 검증 및 빌드 결과
+
+3개 프로젝트 모두 단위 테스트 통과 및 바이너리 빌드를 완료하였습니다:
 
 ```bash
-# Turbo Rust 디렉터리로 이동
-cd c:\AntiGravity\TurboRust
+# tg (Turbo Go)
+$ cd /Users/maro/Projects/tg && go test ./... && go build -o bin/tg ./cmd/tg
+ok  	tg/internal/compiler	(cached)
+ok  	tg/internal/debugger	(cached)
+ok  	tg/internal/syntax	(cached)
+ok  	tg/internal/ui	(cached)
 
-# 1. Turbo Rust 기본 실행
-.\bin\tr.exe
+# tr (Turbo Rust)
+$ cd /Users/maro/Projects/tr && go test ./... && go build -o bin/tr ./cmd/tr
+ok  	tr/internal/compiler	(cached)
+ok  	tr/internal/debugger	(cached)
+ok  	tr/internal/syntax	(cached)
+ok  	tr/internal/ui	(cached)
 
-# 2. 예제 코드 열기
-.\bin\tr.exe examples\hello.rs
-.\bin\tr.exe examples\fibonacci.rs
+# tf77 (Turbo FORTRAN 77)
+$ cd /Users/maro/Projects/tf77 && go test ./... && go build -o bin/tf77 ./cmd/tf77
+ok  	tf77/internal/compiler	(cached)
+ok  	tf77/internal/debugger	(cached)
+ok  	tf77/internal/syntax	(cached)
+ok  	tf77/internal/ui	(cached)
 ```
-

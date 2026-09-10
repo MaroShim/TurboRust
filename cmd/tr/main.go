@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/gdamore/tcell/v2"
 	"tr/internal/compiler"
@@ -32,9 +33,11 @@ func main() {
 	aboutDlg := dialogs.NewAboutDialog()
 	gotoDlg := dialogs.NewGotoLineDialog()
 	findDlg := dialogs.NewFindDialog()
+	searchResDlg := dialogs.NewSearchResultsDialog()
 
 	app.SetDialogs(compileDlg, errListDlg, openDlg, saveDlg, aboutDlg, gotoDlg)
 	app.SetFindDialog(findDlg)
+	app.SetSearchResultsDialog(searchResDlg)
 
 	screen := app.Screen()
 	editor := app.GetEditor()
@@ -152,14 +155,63 @@ func main() {
 			en := sound.Toggle()
 			app.GetMenuBar().SetSoundEnabled(en)
 		case "search_find":
-			findDlg.Show(editor.LastFindQuery, func(query string, caseSensitive bool) {
+			initQ := editor.GetWordUnderCursor()
+			if initQ == "" {
+				initQ = editor.LastFindQuery
+			}
+			findDlg.ShowWithTitle("Find", initQ, func(query string, caseSensitive bool) {
 				found := editor.FindNext(query, caseSensitive)
 				if found {
 					sound.PlayBell()
+					app.SetStatusMessage(fmt.Sprintf("Found %q", query))
 				} else {
 					sound.PlayError()
+					app.SetStatusMessage(fmt.Sprintf("Search string not found: %q", query))
 				}
 			})
+		case "search_project":
+			initQ := editor.GetWordUnderCursor()
+			if initQ == "" {
+				initQ = editor.LastFindQuery
+			}
+			findDlg.ShowWithTitle("Find in Project", initQ, func(query string, caseSensitive bool) {
+				matches := compiler.SearchInProject(editor.FilePath, query, caseSensitive)
+				if len(matches) > 0 {
+					sound.PlayBell()
+					rootDir := compiler.GetSearchRootDir(editor.FilePath)
+					searchResDlg.Show(matches, rootDir, func(match compiler.SearchMatch) {
+						if match.File != "" && match.File != editor.FilePath {
+							_ = editor.LoadFile(match.File)
+						}
+						editor.GotoLine(match.Line, match.Column)
+						app.SetStatusMessage(fmt.Sprintf("Jumped to %s:%d", filepath.Base(match.File), match.Line))
+					})
+				} else {
+					sound.PlayError()
+					app.SetStatusMessage(fmt.Sprintf("No matches found for %q in project", query))
+				}
+			})
+		case "search_definition":
+			sym := editor.GetWordUnderCursor()
+			if sym == "" {
+				sym = editor.LastFindQuery
+			}
+			if sym != "" {
+				file, line, col, ok := compiler.FindDefinitionInProject(editor.FilePath, sym)
+				if ok {
+					sound.PlayBell()
+					if file != "" && file != editor.FilePath {
+						_ = editor.LoadFile(file)
+					}
+					editor.GotoLine(line, col)
+					app.SetStatusMessage(fmt.Sprintf("Jumped to definition of %q (%s:%d)", sym, filepath.Base(file), line))
+				} else {
+					sound.PlayError()
+					app.SetStatusMessage(fmt.Sprintf("Definition not found for %q", sym))
+				}
+			} else {
+				app.SetStatusMessage("No symbol under cursor (press F12 on function name)")
+			}
 		case "search_again":
 			if editor.LastFindQuery != "" {
 				found := editor.FindNext(editor.LastFindQuery, editor.LastCaseSensitive)
@@ -342,6 +394,20 @@ func main() {
 				continue
 			}
 
+			if searchResDlg.Visible {
+				switch key {
+				case tcell.KeyUp:
+					searchResDlg.MoveUp()
+				case tcell.KeyDown:
+					searchResDlg.MoveDown()
+				case tcell.KeyEnter:
+					searchResDlg.SelectCurrent()
+				case tcell.KeyEscape:
+					searchResDlg.Hide()
+				}
+				continue
+			}
+
 			// 3. Global Shortcuts (Turbo C / Turbo Pascal Standard + macOS Option Key Workarounds)
 			isAlt := (mod == tcell.ModAlt)
 
@@ -355,6 +421,10 @@ func main() {
 				} else if isAlt && key == tcell.KeyF5 {
 					// Alt+F5: User Screen
 					dispatchAction("run_userscreen")
+					continue
+				} else if isAlt && key == tcell.KeyF3 {
+					// Alt+F3: Find in Project
+					dispatchAction("search_project")
 					continue
 				} else if ch == 'f' || ch == 'F' || ch == 'ƒ' {
 					// Alt+F: Open File Menu
@@ -491,6 +561,9 @@ func main() {
 				continue
 			case tcell.KeyF9:
 				dispatchAction("compile_make")
+				continue
+			case tcell.KeyF12:
+				dispatchAction("search_definition")
 				continue
 			}
 

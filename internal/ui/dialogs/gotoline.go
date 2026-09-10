@@ -58,6 +58,10 @@ func (g *GotoLineDialog) Confirm() {
 	}
 }
 
+func (g *GotoLineDialog) IsVisible() bool {
+	return g.Visible
+}
+
 func (g *GotoLineDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	if !g.Visible {
 		return
@@ -92,6 +96,14 @@ func (g *GotoLineDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 		if i < boxW {
 			screen.SetContent(x+3+i, y+3, r, nil, inputBoxStyle)
 		}
+	}
+
+	// Cursor
+	curX := x + 3 + len([]rune(g.LineText))
+	if curX < x+3+boxW {
+		cursorStyle := tcell.StyleDefault.Background(ui.ColorEditorCursor).Foreground(tcell.ColorBlack).Bold(true)
+		screen.SetContent(curX, y+3, ' ', nil, cursorStyle)
+		screen.ShowCursor(curX, y+3)
 	}
 
 	// Hint

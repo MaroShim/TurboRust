@@ -46,6 +46,10 @@ func (s *SaveFileDialog) Confirm() {
 	}
 }
 
+func (s *SaveFileDialog) IsVisible() bool {
+	return s.Visible
+}
+
 func (s *SaveFileDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	if !s.Visible {
 		return
@@ -76,6 +80,14 @@ func (s *SaveFileDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 		if i < boxW {
 			screen.SetContent(x+3+i, y+3, r, nil, inputBoxStyle)
 		}
+	}
+
+	// Cursor
+	curX := x + 3 + len([]rune(s.FileName))
+	if curX < x+3+boxW {
+		cursorStyle := tcell.StyleDefault.Background(ui.ColorEditorCursor).Foreground(tcell.ColorBlack).Bold(true)
+		screen.SetContent(curX, y+3, ' ', nil, cursorStyle)
+		screen.ShowCursor(curX, y+3)
 	}
 
 	// Buttons

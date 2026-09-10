@@ -39,11 +39,16 @@ func (cd *CompileDialog) Hide() {
 	}
 }
 
+func (cd *CompileDialog) IsVisible() bool {
+	return cd.Visible
+}
+
 // Draw renders the modal Compiling dialog centered on screen
 func (cd *CompileDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	if !cd.Visible {
 		return
 	}
+	screen.HideCursor()
 
 	dialogW := 44
 	dialogH := 13

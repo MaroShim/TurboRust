@@ -34,6 +34,10 @@ func (e *ErrorListDialog) Hide() {
 	e.Visible = false
 }
 
+func (e *ErrorListDialog) IsVisible() bool {
+	return e.Visible
+}
+
 func (e *ErrorListDialog) MoveUp() {
 	if e.SelectedIndex > 0 {
 		e.SelectedIndex--
@@ -59,6 +63,7 @@ func (e *ErrorListDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	if !e.Visible {
 		return
 	}
+	screen.HideCursor()
 
 	dialogW := screenW - 10
 	if dialogW > 70 {

@@ -1,4 +1,4 @@
-# Turbo Rust (Version 0.89) 🚀
+# Turbo Rust (Version 0.89)
 
 > **Retro Borland Turbo Pascal / Turbo C Look & Feel IDE for the Rust Language**
 
@@ -8,7 +8,7 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 
 ---
 
-## 📸 Key Features
+## Key Features
 
 * **Classic Borland Turbo Vision UI**:
   * Signature Turbo Blue editor canvas (`#0000A8`) with double-line box-drawing characters (`╔═╗`, `║ ║`, `╚═╝`)
@@ -44,7 +44,7 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 
 ---
 
-## ⌨️ Keyboard Shortcuts
+## Keyboard Shortcuts
 
 | Shortcut | Function | Description |
 |---|---|---|
@@ -84,7 +84,7 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 
 ---
 
-## 🛠️ Build & Run
+## Build & Run
 
 ### 1. Build and run Turbo Rust binary
 
@@ -103,7 +103,7 @@ go build -o bin/tr.exe ./cmd/tr
 
 ---
 
-# Turbo Rust (Version 0.89) 🚀
+# Turbo Rust (Version 0.89)
 
 > **볼랜드 Turbo Pascal / Turbo C 레트로 감성의 Rust 전용 TUI IDE**
 
@@ -113,7 +113,7 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 
 ---
 
-## 📸 주요 특징
+## 주요 특징
 
 - **Classic Borland Turbo Vision UI**:
   - 시그니처 터보 블루 에디터 캔버스 (`#0000A8`) 및 이중선 박스 드로잉 (`╔═╗`, `║ ║`, `╚═╝`)
@@ -138,7 +138,7 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 
 ---
 
-## ⌨️ 단축키 안내
+## 단축키 안내
 
 | 단축키 | 기능 | 설명 |
 |---|---|---|
@@ -178,7 +178,7 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 
 ---
 
-## 🛠️ 실행 및 빌드 방법
+## 실행 및 빌드 방법
 
 ### 1. 바이너리 빌드 및 실행
 ```bash

@@ -8,6 +8,7 @@ import (
 // FindDialog represents the retro Borland Find Text dialog
 type FindDialog struct {
 	Visible       bool
+	Title         string
 	Query         string
 	CaseSensitive bool
 	FocusField    int // 0: Query input, 1: CaseSensitive checkbox, 2: OK, 3: Cancel
@@ -17,12 +18,22 @@ type FindDialog struct {
 func NewFindDialog() *FindDialog {
 	return &FindDialog{
 		Visible:       false,
+		Title:         "Find",
 		CaseSensitive: false,
 		FocusField:    0,
 	}
 }
 
 func (f *FindDialog) Show(initialQuery string, onFind func(query string, caseSensitive bool)) {
+	f.ShowWithTitle("Find", initialQuery, onFind)
+}
+
+func (f *FindDialog) ShowWithTitle(title, initialQuery string, onFind func(query string, caseSensitive bool)) {
+	if title != "" {
+		f.Title = title
+	} else {
+		f.Title = "Find"
+	}
 	if initialQuery != "" {
 		f.Query = initialQuery
 	}
@@ -33,6 +44,10 @@ func (f *FindDialog) Show(initialQuery string, onFind func(query string, caseSen
 
 func (f *FindDialog) Hide() {
 	f.Visible = false
+}
+
+func (f *FindDialog) IsVisible() bool {
+	return f.Visible
 }
 
 func (f *FindDialog) InsertRune(ch rune) {
@@ -86,7 +101,11 @@ func (f *FindDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	x := (screenW - dialogW) / 2
 	y := (screenH - dialogH) / 2
 
-	ui.DrawDialogBox(screen, x, y, dialogW, dialogH, "Find")
+	title := f.Title
+	if title == "" {
+		title = "Find"
+	}
+	ui.DrawDialogBox(screen, x, y, dialogW, dialogH, title)
 
 	labelStyle := tcell.StyleDefault.Background(ui.ColorDialogBg).Foreground(ui.ColorDialogFg)
 	inputBoxStyle := tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorYellow).Bold(true)
@@ -113,8 +132,15 @@ func (f *FindDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 		}
 	}
 	// Cursor marker if input focused
-	if f.FocusField == 0 && len(f.Query) < boxW {
-		screen.SetContent(x+3+len(f.Query), y+3, '█', nil, inputBoxStyle)
+	if f.FocusField == 0 {
+		curX := x + 3 + len([]rune(f.Query))
+		if curX < x+3+boxW {
+			cursorStyle := tcell.StyleDefault.Background(ui.ColorEditorCursor).Foreground(tcell.ColorBlack).Bold(true)
+			screen.SetContent(curX, y+3, ' ', nil, cursorStyle)
+			screen.ShowCursor(curX, y+3)
+		}
+	} else {
+		screen.HideCursor()
 	}
 
 	// Options: "[X] Case sensitive"

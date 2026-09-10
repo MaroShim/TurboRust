@@ -22,10 +22,15 @@ func (a *AboutDialog) Hide() {
 	a.Visible = false
 }
 
+func (a *AboutDialog) IsVisible() bool {
+	return a.Visible
+}
+
 func (a *AboutDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	if !a.Visible {
 		return
 	}
+	screen.HideCursor()
 
 	dialogW := 48
 	dialogH := 14
