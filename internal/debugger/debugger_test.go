@@ -1,6 +1,9 @@
 package debugger
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -178,4 +181,101 @@ func TestRustEngineHello(t *testing.T) {
 	if !strings.Contains(out, "Hello, Turbo Rust World!") {
 		t.Errorf("expected hello output, got %q", out)
 	}
+}
+
+func TestFindRustDebugger(t *testing.T) {
+	path, dbgType := FindRustDebugger()
+	t.Logf("Detected debugger: path=%s, type=%s", path, dbgType)
+	if path != "" {
+		if dbgType != "lldb" && dbgType != "gdb" {
+			t.Errorf("unexpected debugger type %s for path %s", dbgType, path)
+		}
+	} else {
+		if dbgType != "internal" {
+			t.Errorf("expected internal fallback when no debugger found, got %s", dbgType)
+		}
+	}
+}
+
+func TestInternalDebuggerFallbackWhenNoBinary(t *testing.T) {
+	dbg := NewDebugger()
+	lines := []string{
+		"fn main() {",
+		"    let x = 42;",
+		"}",
+	}
+	// Non-existent binary path should fall back to internal
+	err := dbg.StartWithLines("/non/existent/binary_path_12345", "main.rs", lines, 1)
+	if err != nil {
+		t.Fatalf("StartWithLines failed: %v", err)
+	}
+	if dbg.BackendType() != "internal" {
+		t.Errorf("expected internal fallback for non-existent binary, got %s", dbg.BackendType())
+	}
+	_ = dbg.Stop()
+}
+
+func TestNativeDebuggerExecution(t *testing.T) {
+	dbgPath, dbgType := FindRustDebugger()
+	if dbgType == "internal" {
+		t.Skip("No native debugger (lldb/gdb) found on system, skipping native execution test")
+	}
+
+	// Verify rustc exists
+	rustcPath, err := exec.LookPath("rustc")
+	if err != nil {
+		t.Skip("rustc not found, skipping native execution test")
+	}
+
+	tempDir := t.TempDir()
+	srcFile := filepath.Join(tempDir, "test_dbg.rs")
+	binFile := filepath.Join(tempDir, "test_dbg_bin")
+
+	srcCode := `fn main() {
+    let mut count = 0;
+    count += 1;
+    println!("count={}", count);
+}
+`
+	if err := os.WriteFile(srcFile, []byte(srcCode), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Compile with debug symbols
+	cmd := exec.Command(rustcPath, "-g", "-o", binFile, srcFile)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("rustc compilation failed: %v, output: %s", err, string(out))
+	}
+
+	dbg := NewDebugger()
+	// Breakpoint at line 3: count += 1;
+	dbg.SetBreakpoint(srcFile, 3)
+
+	lines := strings.Split(srcCode, "\n")
+	if err := dbg.StartWithLines(binFile, srcFile, lines, 1); err != nil {
+		t.Fatalf("StartWithLines failed: %v", err)
+	}
+
+	backend := dbg.BackendType()
+	t.Logf("Active backend: %s (path: %s)", backend, dbgPath)
+	if backend == "internal" {
+		t.Errorf("expected native backend, got internal")
+	}
+
+	st := dbg.GetState()
+	t.Logf("Initial stop state: file=%s line=%d func=%s", st.CurrentFile, st.CurrentLine, st.CurrentFunc)
+
+	// Step over
+	if err := dbg.StepOver(); err != nil {
+		t.Fatalf("StepOver failed: %v", err)
+	}
+	st = dbg.GetState()
+	t.Logf("State after StepOver: line=%d vars=%+v", st.CurrentLine, st.LocalVars)
+
+	// Continue to exit
+	_ = dbg.Continue()
+	st = dbg.GetState()
+	t.Logf("Final state: exited=%v exitCode=%d", st.Exited, st.ExitCode)
+
+	_ = dbg.Stop()
 }

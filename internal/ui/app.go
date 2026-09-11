@@ -274,6 +274,7 @@ func (a *App) StartDebugging() (*compiler.BuildResult, error) {
 
 	a.watchWindow.Visible = true
 	a.SyncDebuggerState()
+	a.SetStatusMessage(fmt.Sprintf("Debugging started [%s]", a.debugger.BackendType()))
 
 	return bRes, nil
 }

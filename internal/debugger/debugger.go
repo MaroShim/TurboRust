@@ -36,12 +36,25 @@ type Debugger struct {
 	activeBin   string
 	srcFile     string
 	engine      *RustEngine
+	extSession  *ExternalSession
+	backendType string
 }
 
 func NewDebugger() *Debugger {
 	return &Debugger{
 		breakpoints: make(map[string]map[int]bool),
+		backendType: "internal",
 	}
+}
+
+// BackendType returns the currently active debugger backend ("rust-lldb", "lldb", "gdb", or "internal")
+func (d *Debugger) BackendType() string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.backendType != "" {
+		return d.backendType
+	}
+	return "internal"
 }
 
 // FindRustDebugger looks for rust-lldb, lldb, or gdb in PATH
@@ -72,6 +85,13 @@ func (d *Debugger) SetBreakpoint(file string, line int) {
 	if d.engine != nil && (d.srcFile == norm || filepath.Clean(d.srcFile) == norm) {
 		d.engine.Breakpoints[line] = true
 	}
+	if d.extSession != nil {
+		if d.extSession.debuggerType == "gdb" {
+			d.extSession.sendCmd(fmt.Sprintf("break %s:%d", filepath.Base(file), line))
+		} else {
+			d.extSession.sendCmd(fmt.Sprintf("breakpoint set -f %s -l %d", filepath.Base(file), line))
+		}
+	}
 }
 
 // RemoveBreakpoint removes a breakpoint at file:line
@@ -85,6 +105,13 @@ func (d *Debugger) RemoveBreakpoint(file string, line int) {
 	}
 	if d.engine != nil && (d.srcFile == norm || filepath.Clean(d.srcFile) == norm) {
 		delete(d.engine.Breakpoints, line)
+	}
+	if d.extSession != nil {
+		if d.extSession.debuggerType == "gdb" {
+			d.extSession.sendCmd(fmt.Sprintf("clear %s:%d", filepath.Base(file), line))
+		} else {
+			d.extSession.sendCmd(fmt.Sprintf("breakpoint clear -f %s -l %d", filepath.Base(file), line))
+		}
 	}
 }
 
@@ -103,11 +130,25 @@ func (d *Debugger) ToggleBreakpoint(file string, line int) bool {
 		if d.engine != nil {
 			delete(d.engine.Breakpoints, line)
 		}
+		if d.extSession != nil {
+			if d.extSession.debuggerType == "gdb" {
+				d.extSession.sendCmd(fmt.Sprintf("clear %s:%d", filepath.Base(file), line))
+			} else {
+				d.extSession.sendCmd(fmt.Sprintf("breakpoint clear -f %s -l %d", filepath.Base(file), line))
+			}
+		}
 		return false
 	} else {
 		d.breakpoints[norm][line] = true
 		if d.engine != nil {
 			d.engine.Breakpoints[line] = true
+		}
+		if d.extSession != nil {
+			if d.extSession.debuggerType == "gdb" {
+				d.extSession.sendCmd(fmt.Sprintf("break %s:%d", filepath.Base(file), line))
+			} else {
+				d.extSession.sendCmd(fmt.Sprintf("breakpoint set -f %s -l %d", filepath.Base(file), line))
+			}
 		}
 		return true
 	}
@@ -157,6 +198,13 @@ func (d *Debugger) ClearBreakpoints() {
 	if d.engine != nil {
 		d.engine.Breakpoints = make(map[int]bool)
 	}
+	if d.extSession != nil {
+		if d.extSession.debuggerType == "gdb" {
+			d.extSession.sendCmd("delete")
+		} else {
+			d.extSession.sendCmd("breakpoint delete")
+		}
+	}
 }
 
 // IsActive returns whether a debug session is active
@@ -177,6 +225,9 @@ func (d *Debugger) GetState() DebugState {
 func (d *Debugger) GetProgramOutput() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if d.extSession != nil {
+		return d.extSession.GetOutput()
+	}
 	if d.engine != nil {
 		return d.engine.OutputBuf.String()
 	}
@@ -198,6 +249,15 @@ func (d *Debugger) Start(binPath string, srcFile string, initialLine int) error 
 func (d *Debugger) StartWithLines(binPath string, srcFile string, lines []string, initialLine int) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	// Clean up any existing session
+	if d.extSession != nil {
+		_ = d.extSession.Stop()
+		d.extSession = nil
+	}
+	if d.engine != nil {
+		d.engine = nil
+	}
 
 	d.activeBin = binPath
 	d.srcFile = filepath.Clean(srcFile)
@@ -225,6 +285,23 @@ func (d *Debugger) StartWithLines(binPath string, srcFile string, lines []string
 		}
 	}
 
+	// 1. Try external debugger (rust-lldb, lldb, gdb) if binary exists
+	if binPath != "" {
+		if _, err := os.Stat(binPath); err == nil {
+			if dbgPath, dbgType := FindRustDebugger(); dbgType != "internal" {
+				ext, err := NewExternalSession(dbgPath, dbgType, binPath, srcFile, bps)
+				if err == nil {
+					d.extSession = ext
+					d.backendType = filepath.Base(dbgPath)
+					d.syncStateLocked()
+					return nil
+				}
+			}
+		}
+	}
+
+	// 2. Fallback to internal RustEngine
+	d.backendType = "internal"
 	if len(lines) == 0 && srcFile != "" {
 		if content, err := os.ReadFile(srcFile); err == nil {
 			lines = stringsSplitLines(string(content))
@@ -259,6 +336,10 @@ func (d *Debugger) StartWithLines(binPath string, srcFile string, lines []string
 }
 
 func (d *Debugger) syncStateLocked() {
+	if d.extSession != nil {
+		d.state = d.extSession.GetState()
+		return
+	}
 	if d.engine == nil {
 		d.state = DebugState{
 			Active:   false,
@@ -286,7 +367,17 @@ func (d *Debugger) Continue() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if !d.state.Active || d.engine == nil {
+	if !d.state.Active {
+		return fmt.Errorf("no active debug session")
+	}
+
+	if d.extSession != nil && d.extSession.IsActive() {
+		err := d.extSession.Continue()
+		d.syncStateLocked()
+		return err
+	}
+
+	if d.engine == nil {
 		return fmt.Errorf("no active debug session")
 	}
 
@@ -300,7 +391,17 @@ func (d *Debugger) StepOver() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if !d.state.Active || d.engine == nil {
+	if !d.state.Active {
+		return fmt.Errorf("no active debug session")
+	}
+
+	if d.extSession != nil && d.extSession.IsActive() {
+		err := d.extSession.StepOver()
+		d.syncStateLocked()
+		return err
+	}
+
+	if d.engine == nil {
 		return fmt.Errorf("no active debug session")
 	}
 
@@ -314,7 +415,17 @@ func (d *Debugger) StepInto() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if !d.state.Active || d.engine == nil {
+	if !d.state.Active {
+		return fmt.Errorf("no active debug session")
+	}
+
+	if d.extSession != nil && d.extSession.IsActive() {
+		err := d.extSession.StepInto()
+		d.syncStateLocked()
+		return err
+	}
+
+	if d.engine == nil {
 		return fmt.Errorf("no active debug session")
 	}
 
@@ -328,9 +439,15 @@ func (d *Debugger) Stop() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	if d.extSession != nil {
+		_ = d.extSession.Stop()
+		d.extSession = nil
+	}
+
 	if d.engine != nil {
 		d.engine.Active = false
 		d.engine.Exited = true
+		d.engine = nil
 	}
 
 	d.state = DebugState{
