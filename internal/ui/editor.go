@@ -43,6 +43,31 @@ type Editor struct {
 	SelectStartX int
 	SelectEndY   int
 	SelectEndX   int
+
+	// Navigation history (F12 Go to definition stack)
+	navBackStack    []NavLocation
+	navForwardStack []NavLocation
+
+	// Undo / Redo history
+	undoStack []EditSnapshot
+	redoStack []EditSnapshot
+}
+
+// NavLocation preserves editor position across files for F12 navigation
+type NavLocation struct {
+	FilePath string
+	CursorY  int
+	CursorX  int
+	ScrollY  int
+	ScrollX  int
+}
+
+// EditSnapshot stores a buffer snapshot for Undo/Redo
+type EditSnapshot struct {
+	Lines   []string
+	CursorY int
+	CursorX int
+	Dirty   bool
 }
 
 func ExpandTabs(s string, tabWidth int) string {
@@ -244,8 +269,173 @@ func (e *Editor) GotoLine(line, col int) {
 	}
 }
 
+// PushNavLocation records current file and cursor position onto back navigation stack
+func (e *Editor) PushNavLocation() {
+	loc := NavLocation{
+		FilePath: e.FilePath,
+		CursorY:  e.CursorY,
+		CursorX:  e.CursorX,
+		ScrollY:  e.ScrollY,
+		ScrollX:  e.ScrollX,
+	}
+	// Avoid pushing duplicate consecutive location
+	if len(e.navBackStack) > 0 {
+		last := e.navBackStack[len(e.navBackStack)-1]
+		if last.FilePath == loc.FilePath && last.CursorY == loc.CursorY && last.CursorX == loc.CursorX {
+			return
+		}
+	}
+	e.navBackStack = append(e.navBackStack, loc)
+	// Clear forward stack on new navigation action
+	e.navForwardStack = nil
+}
+
+// NavigateBack returns to the previous location from the back navigation stack
+func (e *Editor) NavigateBack() bool {
+	if len(e.navBackStack) == 0 {
+		return false
+	}
+	// Push current location onto forward stack
+	current := NavLocation{
+		FilePath: e.FilePath,
+		CursorY:  e.CursorY,
+		CursorX:  e.CursorX,
+		ScrollY:  e.ScrollY,
+		ScrollX:  e.ScrollX,
+	}
+	e.navForwardStack = append(e.navForwardStack, current)
+
+	// Pop target location
+	target := e.navBackStack[len(e.navBackStack)-1]
+	e.navBackStack = e.navBackStack[:len(e.navBackStack)-1]
+
+	e.applyNavLocation(target)
+	return true
+}
+
+// NavigateForward returns to the next location from the forward navigation stack
+func (e *Editor) NavigateForward() bool {
+	if len(e.navForwardStack) == 0 {
+		return false
+	}
+	// Push current location onto back stack
+	current := NavLocation{
+		FilePath: e.FilePath,
+		CursorY:  e.CursorY,
+		CursorX:  e.CursorX,
+		ScrollY:  e.ScrollY,
+		ScrollX:  e.ScrollX,
+	}
+	e.navBackStack = append(e.navBackStack, current)
+
+	// Pop target location
+	target := e.navForwardStack[len(e.navForwardStack)-1]
+	e.navForwardStack = e.navForwardStack[:len(e.navForwardStack)-1]
+
+	e.applyNavLocation(target)
+	return true
+}
+
+func (e *Editor) applyNavLocation(loc NavLocation) {
+	if loc.FilePath != "" && loc.FilePath != e.FilePath {
+		_ = e.LoadFile(loc.FilePath)
+	}
+	if loc.CursorY < len(e.Lines) {
+		e.CursorY = loc.CursorY
+		lineLen := len([]rune(e.Lines[e.CursorY]))
+		if loc.CursorX > lineLen {
+			e.CursorX = lineLen
+		} else {
+			e.CursorX = loc.CursorX
+		}
+	}
+	e.ScrollY = loc.ScrollY
+	e.ScrollX = loc.ScrollX
+	e.ClearSelection()
+	e.ClearHighlight()
+}
+
+// SaveSnapshot saves a snapshot of the current buffer for Undo
+func (e *Editor) SaveSnapshot() {
+	linesCopy := make([]string, len(e.Lines))
+	copy(linesCopy, e.Lines)
+
+	snap := EditSnapshot{
+		Lines:   linesCopy,
+		CursorY: e.CursorY,
+		CursorX: e.CursorX,
+		Dirty:   e.Dirty,
+	}
+	// Cap undo stack size to prevent unbounded memory growth
+	const maxUndo = 100
+	if len(e.undoStack) >= maxUndo {
+		e.undoStack = e.undoStack[1:]
+	}
+	e.undoStack = append(e.undoStack, snap)
+	e.redoStack = nil
+}
+
+// Undo restores the previous buffer state
+func (e *Editor) Undo() bool {
+	if len(e.undoStack) == 0 {
+		return false
+	}
+	// Save current state into redoStack
+	linesCopy := make([]string, len(e.Lines))
+	copy(linesCopy, e.Lines)
+	currSnap := EditSnapshot{
+		Lines:   linesCopy,
+		CursorY: e.CursorY,
+		CursorX: e.CursorX,
+		Dirty:   e.Dirty,
+	}
+	e.redoStack = append(e.redoStack, currSnap)
+
+	// Pop previous state
+	prev := e.undoStack[len(e.undoStack)-1]
+	e.undoStack = e.undoStack[:len(e.undoStack)-1]
+
+	e.Lines = prev.Lines
+	e.CursorY = prev.CursorY
+	e.CursorX = prev.CursorX
+	e.Dirty = prev.Dirty
+	e.ClearSelection()
+	e.ClearHighlight()
+	return true
+}
+
+// Redo restores the undone buffer state
+func (e *Editor) Redo() bool {
+	if len(e.redoStack) == 0 {
+		return false
+	}
+	// Save current state into undoStack
+	linesCopy := make([]string, len(e.Lines))
+	copy(linesCopy, e.Lines)
+	currSnap := EditSnapshot{
+		Lines:   linesCopy,
+		CursorY: e.CursorY,
+		CursorX: e.CursorX,
+		Dirty:   e.Dirty,
+	}
+	e.undoStack = append(e.undoStack, currSnap)
+
+	// Pop redo state
+	next := e.redoStack[len(e.redoStack)-1]
+	e.redoStack = e.redoStack[:len(e.redoStack)-1]
+
+	e.Lines = next.Lines
+	e.CursorY = next.CursorY
+	e.CursorX = next.CursorX
+	e.Dirty = next.Dirty
+	e.ClearSelection()
+	e.ClearHighlight()
+	return true
+}
+
 func (e *Editor) InsertRune(ch rune) {
 	e.ClearHighlight()
+	e.SaveSnapshot()
 	if e.SelectActive {
 		e.DeleteSelection()
 	}
@@ -272,6 +462,7 @@ func (e *Editor) InsertRune(ch rune) {
 }
 
 func (e *Editor) InsertTab() {
+	e.SaveSnapshot()
 	if e.SelectActive {
 		e.DeleteSelection()
 	}
@@ -286,6 +477,7 @@ func (e *Editor) InsertTab() {
 }
 
 func (e *Editor) InsertNewLine() {
+	e.SaveSnapshot()
 	if e.SelectActive {
 		e.DeleteSelection()
 	}
@@ -324,6 +516,7 @@ func (e *Editor) InsertNewLine() {
 
 func (e *Editor) Backspace() {
 	e.ClearHighlight()
+	e.SaveSnapshot()
 	if e.SelectActive {
 		e.DeleteSelection()
 		return
@@ -380,6 +573,7 @@ func (e *Editor) Backspace() {
 
 func (e *Editor) Delete() {
 	e.ClearHighlight()
+	e.SaveSnapshot()
 	if e.SelectActive {
 		e.DeleteSelection()
 		return
@@ -927,6 +1121,7 @@ func (e *Editor) DeleteSelection() bool {
 	if !ok {
 		return false
 	}
+	e.SaveSnapshot()
 	if sy == ey {
 		r := []rune(e.Lines[sy])
 		if sx > len(r) {
@@ -996,6 +1191,7 @@ func (e *Editor) PasteText(text string) {
 	if text == "" {
 		return
 	}
+	e.SaveSnapshot()
 	if len(e.Lines) == 0 {
 		e.Lines = []string{""}
 		e.CursorY = 0

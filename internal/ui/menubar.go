@@ -51,7 +51,9 @@ func NewMenuBar() *MenuBar {
 				HotKey:   'E',
 				HotIndex: 0,
 				Items: []MenuItem{
-					{Label: "Undo", Shortcut: "Alt+BkSp", ActionID: "edit_undo"},
+					{Label: "Undo", Shortcut: "Ctrl+Z", ActionID: "edit_undo"},
+					{Label: "Redo", Shortcut: "Ctrl+Y", ActionID: "edit_redo"},
+					{IsSep: true},
 					{Label: "Cut", Shortcut: "Ctrl+X", ActionID: "edit_cut"},
 					{Label: "Copy", Shortcut: "Ctrl+C", ActionID: "edit_copy"},
 					{Label: "Paste", Shortcut: "Ctrl+V", ActionID: "edit_paste"},
@@ -67,10 +69,13 @@ func NewMenuBar() *MenuBar {
 				Items: []MenuItem{
 					{Label: "Find...", Shortcut: "Ctrl+F", ActionID: "search_find"},
 					{Label: "Find in project...", Shortcut: "Alt+F3", ActionID: "search_project"},
+					{Label: "Go to definition", Shortcut: "F12", ActionID: "search_definition"},
+					{Label: "Previous location", Shortcut: "Ctrl+-", ActionID: "search_prev_pos"},
+					{Label: "Next location", Shortcut: "Ctrl+Shift+-", ActionID: "search_next_pos"},
+					{IsSep: true},
 					{Label: "Search again", Shortcut: "Ctrl+L", ActionID: "search_again"},
 					{Label: "Replace...", ActionID: "search_replace"},
 					{Label: "Go to line...", Shortcut: "Alt+G", ActionID: "search_goto"},
-					{Label: "Go to definition", Shortcut: "F12", ActionID: "search_definition"},
 				},
 			},
 			{

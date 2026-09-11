@@ -180,6 +180,7 @@ func main() {
 					sound.PlayBell()
 					rootDir := compiler.GetSearchRootDir(editor.FilePath)
 					searchResDlg.Show(matches, rootDir, func(match compiler.SearchMatch) {
+						editor.PushNavLocation()
 						if match.File != "" && match.File != editor.FilePath {
 							_ = editor.LoadFile(match.File)
 						}
@@ -200,6 +201,7 @@ func main() {
 				file, line, col, ok := compiler.FindDefinitionInProject(editor.FilePath, sym)
 				if ok {
 					sound.PlayBell()
+					editor.PushNavLocation()
 					if file != "" && file != editor.FilePath {
 						_ = editor.LoadFile(file)
 					}
@@ -211,6 +213,34 @@ func main() {
 				}
 			} else {
 				app.SetStatusMessage("No symbol under cursor (press F12 on function name)")
+			}
+		case "search_prev_pos":
+			if editor.NavigateBack() {
+				sound.PlayBell()
+				app.SetStatusMessage(fmt.Sprintf("Navigated back to %s:%d", editor.FileName, editor.CursorY+1))
+			} else {
+				app.SetStatusMessage("Navigation history: at oldest location")
+			}
+		case "search_next_pos":
+			if editor.NavigateForward() {
+				sound.PlayBell()
+				app.SetStatusMessage(fmt.Sprintf("Navigated forward to %s:%d", editor.FileName, editor.CursorY+1))
+			} else {
+				app.SetStatusMessage("Navigation history: at newest location")
+			}
+		case "edit_undo":
+			if editor.Undo() {
+				sound.PlayBell()
+				app.SetStatusMessage("Undo performed")
+			} else {
+				app.SetStatusMessage("Already at oldest change")
+			}
+		case "edit_redo":
+			if editor.Redo() {
+				sound.PlayBell()
+				app.SetStatusMessage("Redo performed")
+			} else {
+				app.SetStatusMessage("Already at newest change")
 			}
 		case "search_again":
 			if editor.LastFindQuery != "" {
@@ -426,6 +456,18 @@ func main() {
 					// Alt+F3: Find in Project
 					dispatchAction("search_project")
 					continue
+				} else if isAlt && key == tcell.KeyLeft {
+					// Alt+Left: Previous Location
+					dispatchAction("search_prev_pos")
+					continue
+				} else if isAlt && key == tcell.KeyRight {
+					// Alt+Right: Next Location
+					dispatchAction("search_next_pos")
+					continue
+				} else if isAlt && (key == tcell.KeyBackspace || key == tcell.KeyBackspace2) {
+					// Alt+Backspace: Undo (Classic Turbo Vision convention)
+					dispatchAction("edit_undo")
+					continue
 				} else if ch == 'f' || ch == 'F' || ch == 'ƒ' {
 					// Alt+F: Open File Menu
 					app.OpenMenuAt(0)
@@ -485,8 +527,25 @@ func main() {
 				}
 			}
 
-			if mod == tcell.ModCtrl {
-				if key == tcell.KeyCtrlC {
+			if mod&tcell.ModCtrl != 0 {
+				if key == tcell.KeyCtrlZ {
+					// Ctrl+Z: Undo
+					dispatchAction("edit_undo")
+					continue
+				} else if key == tcell.KeyCtrlY {
+					// Ctrl+Y: Redo
+					dispatchAction("edit_redo")
+					continue
+				} else if key == tcell.KeyCtrlUnderscore || (ch == '-' && mod&tcell.ModCtrl != 0) {
+					if mod&tcell.ModShift != 0 {
+						// Ctrl+Shift+-: Next Location
+						dispatchAction("search_next_pos")
+					} else {
+						// Ctrl+-: Previous Location
+						dispatchAction("search_prev_pos")
+					}
+					continue
+				} else if key == tcell.KeyCtrlC {
 					// Ctrl+C: Copy
 					dispatchAction("edit_copy")
 					continue
@@ -563,7 +622,12 @@ func main() {
 				dispatchAction("compile_make")
 				continue
 			case tcell.KeyF12:
-				dispatchAction("search_definition")
+				if mod&tcell.ModShift != 0 {
+					// Shift+F12: Previous Location
+					dispatchAction("search_prev_pos")
+				} else {
+					dispatchAction("search_definition")
+				}
 				continue
 			}
 
