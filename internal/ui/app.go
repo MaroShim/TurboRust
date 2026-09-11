@@ -235,6 +235,7 @@ func (a *App) SyncDebuggerState() {
 	a.watchWindow.SetState(st)
 	if st.CurrentLine > 0 && st.Active && !st.Exited {
 		targetFile := st.CurrentFile
+		fileLoaded := false
 		if targetFile != "" {
 			resolved := targetFile
 			if !filepath.IsAbs(resolved) {
@@ -274,9 +275,14 @@ func (a *App) SyncDebuggerState() {
 				if cleanTarget != cleanCurrent {
 					_ = a.editor.LoadFile(cleanTarget)
 				}
+				fileLoaded = true
+			} else if filepath.Base(a.editor.FilePath) == filepath.Base(targetFile) {
+				fileLoaded = true
 			}
 		}
-		a.editor.SetCurrentIP(st.CurrentLine)
+		if fileLoaded {
+			a.editor.SetCurrentIP(st.CurrentLine)
+		}
 	} else {
 		a.editor.SetCurrentIP(0)
 	}

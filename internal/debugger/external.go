@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -115,6 +116,7 @@ func NewExternalSession(debuggerPath, debuggerType, binPath, srcFile string, all
 	if debuggerType == "gdb" {
 		sess.sendCmd("set pagination off")
 		sess.sendCmd("set confirm off")
+		sess.sendCmd("skip -rfu ^(std::|core::|alloc::|<core::|<alloc::|<std::|compiler_builtins::)")
 		for file, lines := range allBreakpoints {
 			baseFile := filepath.Base(file)
 			for line, set := range lines {
@@ -127,6 +129,7 @@ func NewExternalSession(debuggerPath, debuggerType, binPath, srcFile string, all
 	} else {
 		// LLDB / rust-lldb
 		sess.sendCmd("settings set auto-confirm true")
+		sess.sendCmd("settings set target.process.thread.step-avoid-regexp ^(std::|core::|alloc::|<core::|<alloc::|<std::|compiler_builtins::)")
 		for file, lines := range allBreakpoints {
 			baseFile := filepath.Base(file)
 			for line, set := range lines {
@@ -395,11 +398,7 @@ func (s *ExternalSession) Continue() error {
 		return fmt.Errorf("debugger is not active")
 	}
 
-	if s.debuggerType == "gdb" {
-		s.sendCmd("continue")
-	} else {
-		s.sendCmd("thread continue")
-	}
+	s.sendCmd("continue")
 
 	lines, err := s.waitForStop(3 * time.Second)
 	if err != nil {
@@ -408,6 +407,58 @@ func (s *ExternalSession) Continue() error {
 	s.parseOutput(lines)
 	s.queryVariables()
 	return nil
+}
+
+// isUserFile checks if the given file path represents user project source code
+func (s *ExternalSession) isUserFile(file string) bool {
+	if file == "" {
+		return false
+	}
+	// Filter out standard library, compiler internals, and compiler generated stubs
+	if strings.Contains(file, "/rustc/") ||
+		strings.Contains(file, "library/core/") ||
+		strings.Contains(file, "library/std/") ||
+		strings.Contains(file, "library/alloc/") ||
+		strings.Contains(file, "src/libcore/") ||
+		strings.Contains(file, "src/libstd/") ||
+		strings.Contains(file, "src/liballoc/") ||
+		strings.HasPrefix(file, "<") {
+		return false
+	}
+
+	srcDir := ""
+	if s.srcFile != "" {
+		srcDir = filepath.Dir(s.srcFile)
+	}
+
+	if filepath.IsAbs(file) {
+		if fi, err := os.Stat(file); err == nil && fi.Mode().IsRegular() {
+			if srcDir != "" && strings.HasPrefix(file, srcDir) {
+				return true
+			}
+			if cwd, err := os.Getwd(); err == nil && strings.HasPrefix(file, cwd) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Relative or base filename: check if it exists in user project directory or cwd
+	if srcDir != "" {
+		if fi, err := os.Stat(filepath.Join(srcDir, file)); err == nil && fi.Mode().IsRegular() {
+			return true
+		}
+		if fi, err := os.Stat(filepath.Join(srcDir, filepath.Base(file))); err == nil && fi.Mode().IsRegular() {
+			return true
+		}
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		if fi, err := os.Stat(filepath.Join(cwd, file)); err == nil && fi.Mode().IsRegular() {
+			return true
+		}
+	}
+
+	return false
 }
 
 // StepOver executes the current line and pauses at the next line
@@ -430,6 +481,21 @@ func (s *ExternalSession) StepOver() error {
 		return err
 	}
 	s.parseOutput(lines)
+
+	// Just My Code: If step-over landed in non-user code, step out back to user code
+	for !s.isUserFile(s.state.CurrentFile) && !s.state.Exited && s.state.Active {
+		if s.debuggerType == "gdb" {
+			s.sendCmd("finish")
+		} else {
+			s.sendCmd("thread step-out")
+		}
+		outLines, oErr := s.waitForStop(800 * time.Millisecond)
+		if oErr != nil {
+			break
+		}
+		s.parseOutput(outLines)
+	}
+
 	s.queryVariables()
 	return nil
 }
@@ -454,6 +520,21 @@ func (s *ExternalSession) StepInto() error {
 		return err
 	}
 	s.parseOutput(lines)
+
+	// Just My Code: If step entered standard library/runtime/non-user code, step out back to user code
+	for !s.isUserFile(s.state.CurrentFile) && !s.state.Exited && s.state.Active {
+		if s.debuggerType == "gdb" {
+			s.sendCmd("finish")
+		} else {
+			s.sendCmd("thread step-out")
+		}
+		outLines, oErr := s.waitForStop(800 * time.Millisecond)
+		if oErr != nil {
+			break
+		}
+		s.parseOutput(outLines)
+	}
+
 	s.queryVariables()
 	return nil
 }
