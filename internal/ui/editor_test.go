@@ -749,5 +749,84 @@ func TestF12NavigationAndUndoRegression(t *testing.T) {
 	}
 }
 
+func TestEditorAtomicSaveAndFileSafety(t *testing.T) {
+	tempDir := t.TempDir()
 
+	// 1. Test Atomic Save
+	targetFile := filepath.Join(tempDir, "test_atomic.rs")
+	ed := NewEditor("", 1)
+	ed.FilePath = targetFile
+	ed.Lines = []string{"fn main() {", "}"}
+	ed.Dirty = true
 
+	if err := ed.SaveFile(); err != nil {
+		t.Fatalf("SaveFile failed: %v", err)
+	}
+	if ed.Dirty {
+		t.Errorf("expected Dirty=false after save")
+	}
+
+	// Verify content on disk
+	content, err := os.ReadFile(targetFile)
+	if err != nil {
+		t.Fatalf("failed to read saved file: %v", err)
+	}
+	expected := "fn main() {\n}"
+	if string(content) != expected {
+		t.Errorf("expected content %q, got %q", expected, string(content))
+	}
+
+	// Verify no tmp files left
+	entries, _ := os.ReadDir(tempDir)
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".tmp-save-") {
+			t.Errorf("found leftover tmp file: %s", entry.Name())
+		}
+	}
+
+	// 2. Test Permission Preservation (Rule 5)
+	if err := os.Chmod(targetFile, 0600); err != nil {
+		t.Fatalf("failed to chmod: %v", err)
+	}
+	ed.Lines = append(ed.Lines, "// modified")
+	if err := ed.SaveFile(); err != nil {
+		t.Fatalf("SaveFile failed: %v", err)
+	}
+	fi, err := os.Stat(targetFile)
+	if err != nil {
+		t.Fatalf("Stat failed: %v", err)
+	}
+	if fi.Mode().Perm() != 0600 {
+		t.Errorf("expected permission 0600 preserved, got %04o", fi.Mode().Perm())
+	}
+
+	// 3. Test UTF-8 BOM Stripping (Rule 87)
+	bomFile := filepath.Join(tempDir, "bom.rs")
+	bomContent := append([]byte("\xef\xbb\xbf"), []byte("fn main() {}\n// with BOM")...)
+	if err := os.WriteFile(bomFile, bomContent, 0644); err != nil {
+		t.Fatalf("failed to write BOM file: %v", err)
+	}
+	edBom := NewEditor("", 2)
+	if err := edBom.LoadFile(bomFile); err != nil {
+		t.Fatalf("LoadFile on BOM file failed: %v", err)
+	}
+	if len(edBom.Lines) == 0 || edBom.Lines[0] != "fn main() {}" {
+		t.Errorf("expected BOM stripped, first line got %q", edBom.Lines[0])
+	}
+
+	// 4. Test Binary Safety (Rule 15)
+	binFile := filepath.Join(tempDir, "sample.bin")
+	binContent := []byte{0x7f, 'E', 'L', 'F', 0x00, 0x01, 0x02}
+	if err := os.WriteFile(binFile, binContent, 0644); err != nil {
+		t.Fatalf("failed to write bin file: %v", err)
+	}
+	edBin := NewEditor("", 3)
+	if err := edBin.LoadFile(binFile); err == nil {
+		t.Errorf("expected error loading binary file with NUL byte, got nil")
+	}
+
+	// 5. Test Directory Rejection (Rule 6)
+	if err := ed.LoadFile(tempDir); err == nil {
+		t.Errorf("expected error loading directory, got nil")
+	}
+}

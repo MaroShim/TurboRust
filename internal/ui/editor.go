@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -125,10 +127,30 @@ func NewEditor(filePath string, windowNum int) *Editor {
 }
 
 func (e *Editor) LoadFile(path string) error {
-	content, err := os.ReadFile(path)
+	cleanedPath := filepath.Clean(path)
+	fi, err := os.Stat(cleanedPath)
 	if err != nil {
 		return err
 	}
+	if fi.IsDir() {
+		return fmt.Errorf("cannot open directory as file: %s", cleanedPath)
+	}
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("cannot open non-regular file: %s", cleanedPath)
+	}
+
+	content, err := os.ReadFile(cleanedPath)
+	if err != nil {
+		return err
+	}
+
+	// Detect binary files (Rule 15)
+	if bytes.IndexByte(content, 0) != -1 {
+		return fmt.Errorf("cannot open binary file: %s", cleanedPath)
+	}
+
+	// Strip UTF-8 BOM if present (Rule 87)
+	content = bytes.TrimPrefix(content, []byte("\xef\xbb\xbf"))
 
 	// 1. Save current file's breakpoints before switching
 	if e.FilePath != "" && e.FileBreakpoints != nil {
@@ -155,8 +177,8 @@ func (e *Editor) LoadFile(path string) error {
 		lines[i] = ExpandTabs(l, e.TabWidth)
 	}
 	e.Lines = lines
-	e.FilePath = path
-	e.FileName = filepath.Base(path)
+	e.FilePath = cleanedPath
+	e.FileName = filepath.Base(cleanedPath)
 	e.Dirty = false
 	e.CursorX = 0
 	e.CursorY = 0
@@ -168,7 +190,7 @@ func (e *Editor) LoadFile(path string) error {
 	if e.FileBreakpoints == nil {
 		e.FileBreakpoints = make(map[string]map[int]bool)
 	}
-	newKey := filepath.Clean(path)
+	newKey := cleanedPath
 	if bps, ok := e.FileBreakpoints[newKey]; ok {
 		e.Breakpoints = make(map[int]bool)
 		for k, v := range bps {
@@ -184,16 +206,58 @@ func (e *Editor) LoadFile(path string) error {
 }
 
 func (e *Editor) SaveFile() error {
-	if e.FilePath == "" {
-		e.FilePath = "main.go"
-		e.FileName = "main.go"
+	if e.FilePath == "" || e.FilePath == "NONAME00.RS" {
+		e.FilePath = "main.rs"
+		e.FileName = "main.rs"
 	}
+	cleanedPath := filepath.Clean(e.FilePath)
+	e.FilePath = cleanedPath
+	e.FileName = filepath.Base(cleanedPath)
+
+	dir := filepath.Dir(cleanedPath)
+	if dir == "" {
+		dir = "."
+	}
+
+	// Preserve existing permissions if file exists, else default to 0644 (Rule 5)
+	perm := os.FileMode(0644)
+	if fi, err := os.Stat(cleanedPath); err == nil {
+		perm = fi.Mode().Perm()
+	}
+
+	// Atomic save: write to temporary file in the same directory, sync to disk, and rename (Rule 1)
+	tmpFile, err := os.CreateTemp(dir, ".tmp-save-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmpFile.Name()
+	defer func() {
+		_ = os.Remove(tmpName)
+	}()
+
 	content := strings.Join(e.Lines, "\n")
-	err := os.WriteFile(e.FilePath, []byte(content), 0644)
-	if err == nil {
-		e.Dirty = false
+	if _, err := tmpFile.WriteString(content); err != nil {
+		_ = tmpFile.Close()
+		return err
 	}
-	return err
+	if err := tmpFile.Sync(); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+
+	if err := os.Chmod(tmpName, perm); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tmpName, cleanedPath); err != nil {
+		return err
+	}
+
+	e.Dirty = false
+	return nil
 }
 
 func (e *Editor) SaveAs(path string) error {

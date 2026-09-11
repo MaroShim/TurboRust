@@ -51,23 +51,46 @@ func main() {
 			*editor = *ui.NewEditor("", editor.WindowNumber)
 		case "file_open":
 			openDlg.Show(".", func(path string) {
-				_ = editor.LoadFile(path)
+				if err := editor.LoadFile(path); err != nil {
+					sound.PlayError()
+					app.SetStatusMessage("Error opening " + filepath.Base(path) + ": " + err.Error())
+				} else {
+					app.SetStatusMessage("Opened " + editor.FileName)
+				}
 			})
 		case "file_save":
 			if editor.FilePath == "" || editor.FilePath == "NONAME00.RS" {
 				saveDlg.Show("main.rs", func(path string) {
-					_ = editor.SaveAs(path)
+					if err := editor.SaveAs(path); err != nil {
+						sound.PlayError()
+						app.SetStatusMessage("Error saving " + filepath.Base(path) + ": " + err.Error())
+					} else {
+						sound.PlaySuccess()
+						app.SetStatusMessage("Saved " + editor.FileName)
+					}
 				})
 			} else {
-				_ = editor.SaveFile()
+				if err := editor.SaveFile(); err != nil {
+					sound.PlayError()
+					app.SetStatusMessage("Error saving " + editor.FileName + ": " + err.Error())
+				} else {
+					sound.PlaySuccess()
+					app.SetStatusMessage("Saved " + editor.FileName)
+				}
 			}
 		case "file_save_as":
 			defaultName := editor.FileName
-			if defaultName == "" {
+			if defaultName == "" || defaultName == "NONAME00.RS" {
 				defaultName = "main.rs"
 			}
 			saveDlg.Show(defaultName, func(path string) {
-				_ = editor.SaveAs(path)
+				if err := editor.SaveAs(path); err != nil {
+					sound.PlayError()
+					app.SetStatusMessage("Error saving " + filepath.Base(path) + ": " + err.Error())
+				} else {
+					sound.PlaySuccess()
+					app.SetStatusMessage("Saved " + editor.FileName)
+				}
 			})
 		case "app_exit":
 			app.Stop()
@@ -107,12 +130,19 @@ func main() {
 						}
 					}
 					if !hasBPs && app.GetDebugger().IsActive() {
-						_ = app.DebugContinue()
+						if err := app.DebugContinue(); err != nil {
+							sound.PlayError()
+							app.SetStatusMessage("Debug error: " + err.Error())
+						}
 					}
 				}
 			} else {
-				_ = app.DebugContinue()
-				sound.PlayBreakpoint()
+				if err := app.DebugContinue(); err != nil {
+					sound.PlayError()
+					app.SetStatusMessage("Debug error: " + err.Error())
+				} else {
+					sound.PlayBreakpoint()
+				}
 			}
 		case "debug_step_over":
 			if !app.GetDebugger().IsActive() {
@@ -124,8 +154,12 @@ func main() {
 					sound.PlayBreakpoint()
 				}
 			} else {
-				_ = app.DebugStepOver()
-				sound.PlayBreakpoint()
+				if err := app.DebugStepOver(); err != nil {
+					sound.PlayError()
+					app.SetStatusMessage("Debug error: " + err.Error())
+				} else {
+					sound.PlayBreakpoint()
+				}
 			}
 		case "debug_step_into":
 			if !app.GetDebugger().IsActive() {
@@ -137,8 +171,12 @@ func main() {
 					sound.PlayBreakpoint()
 				}
 			} else {
-				_ = app.DebugStepInto()
-				sound.PlayBreakpoint()
+				if err := app.DebugStepInto(); err != nil {
+					sound.PlayError()
+					app.SetStatusMessage("Debug error: " + err.Error())
+				} else {
+					sound.PlayBreakpoint()
+				}
 			}
 		case "debug_stop":
 			app.StopDebugging()
@@ -182,7 +220,11 @@ func main() {
 					searchResDlg.Show(matches, rootDir, func(match compiler.SearchMatch) {
 						editor.PushNavLocation()
 						if match.File != "" && match.File != editor.FilePath {
-							_ = editor.LoadFile(match.File)
+							if err := editor.LoadFile(match.File); err != nil {
+								sound.PlayError()
+								app.SetStatusMessage("Failed to open " + filepath.Base(match.File) + ": " + err.Error())
+								return
+							}
 						}
 						editor.GotoLine(match.Line, match.Column)
 						app.SetStatusMessage(fmt.Sprintf("Jumped to %s:%d", filepath.Base(match.File), match.Line))
@@ -203,7 +245,11 @@ func main() {
 					sound.PlayBell()
 					editor.PushNavLocation()
 					if file != "" && file != editor.FilePath {
-						_ = editor.LoadFile(file)
+						if err := editor.LoadFile(file); err != nil {
+							sound.PlayError()
+							app.SetStatusMessage("Failed to open " + filepath.Base(file) + ": " + err.Error())
+							return
+						}
 					}
 					editor.GotoLine(line, col)
 					app.SetStatusMessage(fmt.Sprintf("Jumped to definition of %q (%s:%d)", sym, filepath.Base(file), line))
@@ -332,7 +378,11 @@ func main() {
 					if compileDlg.Result != nil && len(compileDlg.Result.Errors) > 0 {
 						errListDlg.Show(compileDlg.Result.Errors, func(errItem compiler.CompileError) {
 							if errItem.File != "" && errItem.File != editor.FilePath {
-								_ = editor.LoadFile(errItem.File)
+								if err := editor.LoadFile(errItem.File); err != nil {
+									sound.PlayError()
+									app.SetStatusMessage("Failed to open " + filepath.Base(errItem.File) + ": " + err.Error())
+									return
+								}
 							}
 							editor.GotoLine(errItem.Line, errItem.Column)
 						})
