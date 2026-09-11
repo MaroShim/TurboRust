@@ -134,6 +134,10 @@ func NewExternalSession(debuggerPath, debuggerType, binPath, srcFile string, bre
 		_ = sess.Stop()
 		return nil, err
 	}
+	if !sess.state.Active || sess.state.Exited {
+		_ = sess.Stop()
+		return nil, fmt.Errorf("debugger process exited or failed to start")
+	}
 
 	sess.parseOutput(lines)
 	sess.queryVariables()
@@ -155,7 +159,7 @@ func (s *ExternalSession) waitForStop(timeout time.Duration) ([]string, error) {
 	stopKeywords := []string{
 		"stopped", "stop reason", "Breakpoint", "breakpoint",
 		"exited with status", "exited normally", "exited with code",
-		"Process", "Inferior",
+		"frame #", "* thread #",
 	}
 
 	for {
@@ -164,7 +168,7 @@ func (s *ExternalSession) waitForStop(timeout time.Duration) ([]string, error) {
 			if !ok {
 				s.state.Active = false
 				s.state.Exited = true
-				return collected, nil
+				return collected, fmt.Errorf("debugger process exited")
 			}
 			collected = append(collected, line)
 

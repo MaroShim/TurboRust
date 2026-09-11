@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -57,17 +58,49 @@ func (d *Debugger) BackendType() string {
 	return "internal"
 }
 
-// FindRustDebugger looks for rust-lldb, lldb, or gdb in PATH
+func isDebuggerFunctional(cmdPath string) bool {
+	cmd := exec.Command(cmdPath, "--version")
+	return cmd.Run() == nil
+}
+
+// FindRustDebugger looks for a functional debugger matching OS conventions:
+// - Linux: gdb / rust-gdb prioritized as the primary Linux debugging backend
+// - macOS: lldb / rust-lldb prioritized as standard macOS debugging backend
 func FindRustDebugger() (string, string) {
-	if p, err := exec.LookPath("rust-lldb"); err == nil {
-		return p, "lldb"
+	var candidates []struct {
+		name    string
+		dbgType string
 	}
-	if p, err := exec.LookPath("lldb"); err == nil {
-		return p, "lldb"
+
+	if runtime.GOOS == "darwin" {
+		candidates = []struct {
+			name    string
+			dbgType string
+		}{
+			{"rust-lldb", "lldb"},
+			{"lldb", "lldb"},
+			{"rust-gdb", "gdb"},
+			{"gdb", "gdb"},
+		}
+	} else {
+		// Linux & Windows: prioritize GDB first
+		candidates = []struct {
+			name    string
+			dbgType string
+		}{
+			{"rust-gdb", "gdb"},
+			{"gdb", "gdb"},
+			{"rust-lldb", "lldb"},
+			{"lldb", "lldb"},
+		}
 	}
-	if p, err := exec.LookPath("gdb"); err == nil {
-		return p, "gdb"
+
+	for _, c := range candidates {
+		if p, err := exec.LookPath(c.name); err == nil && isDebuggerFunctional(p) {
+			return p, c.dbgType
+		}
 	}
+
 	return "", "internal"
 }
 
@@ -290,11 +323,14 @@ func (d *Debugger) StartWithLines(binPath string, srcFile string, lines []string
 		if _, err := os.Stat(binPath); err == nil {
 			if dbgPath, dbgType := FindRustDebugger(); dbgType != "internal" {
 				ext, err := NewExternalSession(dbgPath, dbgType, binPath, srcFile, bps)
-				if err == nil {
+				if err == nil && ext != nil && ext.IsActive() {
 					d.extSession = ext
 					d.backendType = filepath.Base(dbgPath)
 					d.syncStateLocked()
 					return nil
+				}
+				if ext != nil {
+					_ = ext.Stop()
 				}
 			}
 		}
