@@ -45,17 +45,17 @@ func TestEditorDraw_FocusedCursorAndGutter(t *testing.T) {
 		t.Errorf("expected non-cursor line gutter to NOT have '▸', got %q", r0)
 	}
 
-	// 2. Check Cursor cell highlight:
+	// 2. Check Hardware Cursor:
 	// Screen coordinates for cursor:
 	// lineNumWidth: digits + 2 = 3 + 2 = 5
-	// Cursor is at col 5, so screenX = 5 + 5 = 10
+	// Cursor is at col 5, so screenX = 5 + 5 = 10, screenY = 2
 	cellRune, _, style, _ := screen.GetContent(10, 2)
 	if cellRune != 'm' {
 		t.Errorf("expected cursor cell to contain 'm', got %q", cellRune)
 	}
 	_, bg, _ := style.Decompose()
-	if bg != ColorEditorCursor {
-		t.Errorf("expected cursor cell background %v, got %v", ColorEditorCursor, bg)
+	if bg != ColorEditorBg {
+		t.Errorf("expected cursor cell to have normal background %v, got %v", ColorEditorBg, bg)
 	}
 }
 
@@ -80,14 +80,14 @@ func TestEditorDraw_UnfocusedState(t *testing.T) {
 		t.Errorf("expected no '▸' gutter marker when unfocused, got %q", r)
 	}
 
-	// Cursor cell must NOT have yellow background
+	// Cursor cell has normal editor background
 	cellRune, _, style, _ := screen.GetContent(10, 2)
 	if cellRune != 'm' {
 		t.Errorf("expected 'm', got %q", cellRune)
 	}
 	_, bg, _ := style.Decompose()
-	if bg == ColorEditorCursor {
-		t.Errorf("cursor cell should NOT have ColorEditorCursor when unfocused")
+	if bg != ColorEditorBg {
+		t.Errorf("expected ColorEditorBg when unfocused, got %v", bg)
 	}
 }
 
@@ -107,13 +107,13 @@ func TestEditorDraw_TabAndEolCursor(t *testing.T) {
 	// Draw focused on empty line
 	ed.Draw(screen, 0, 1, 80, 20, true)
 
-	// On empty line, cursor cell at screenX = 5 (after 5-char gutter) must be yellow space
+	// On empty line, cursor cell at screenX = 5 (after 5-char gutter) must be space with ColorEditorBg
 	r, _, style, _ := screen.GetContent(5, 2)
 	if r != ' ' {
 		t.Errorf("expected space at EOL cursor, got %q", r)
 	}
 	_, bg, _ := style.Decompose()
-	if bg != ColorEditorCursor {
-		t.Errorf("expected ColorEditorCursor on empty line cursor, got %v", bg)
+	if bg != ColorEditorBg {
+		t.Errorf("expected ColorEditorBg on empty line cursor, got %v", bg)
 	}
 }

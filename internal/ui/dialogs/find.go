@@ -108,10 +108,6 @@ func (f *FindDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	ui.DrawDialogBox(screen, x, y, dialogW, dialogH, title)
 
 	labelStyle := tcell.StyleDefault.Background(ui.ColorDialogBg).Foreground(ui.ColorDialogFg)
-	inputBoxStyle := tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorYellow).Bold(true)
-	if f.FocusField != 0 {
-		inputBoxStyle = tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
-	}
 	optFocusStyle := tcell.StyleDefault.Background(ui.ColorDialogBg).Foreground(tcell.ColorYellow).Bold(true)
 	hintStyle := tcell.StyleDefault.Background(ui.ColorDialogBg).Foreground(tcell.ColorDarkGray)
 
@@ -123,25 +119,7 @@ func (f *FindDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 
 	// Input box
 	boxW := dialogW - 6
-	for c := 0; c < boxW; c++ {
-		screen.SetContent(x+3+c, y+3, ' ', nil, inputBoxStyle)
-	}
-	for i, r := range f.Query {
-		if i < boxW {
-			screen.SetContent(x+3+i, y+3, r, nil, inputBoxStyle)
-		}
-	}
-	// Cursor marker if input focused
-	if f.FocusField == 0 {
-		curX := x + 3 + len([]rune(f.Query))
-		if curX < x+3+boxW {
-			cursorStyle := tcell.StyleDefault.Background(ui.ColorEditorCursor).Foreground(tcell.ColorBlack).Bold(true)
-			screen.SetContent(curX, y+3, ' ', nil, cursorStyle)
-			screen.ShowCursor(curX, y+3)
-		}
-	} else {
-		screen.HideCursor()
-	}
+	ui.DrawInputField(screen, x+3, y+3, boxW, f.Query, f.FocusField == 0)
 
 	// Options: "[X] Case sensitive"
 	checkChar := ' '

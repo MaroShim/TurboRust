@@ -75,7 +75,6 @@ func (g *GotoLineDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	ui.DrawDialogBox(screen, x, y, dialogW, dialogH, "Go to Line")
 
 	textStyle := tcell.StyleDefault.Background(ui.ColorDialogBg).Foreground(ui.ColorDialogFg)
-	inputBoxStyle := tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorYellow).Bold(true)
 	hintStyle := tcell.StyleDefault.Background(ui.ColorDialogBg).Foreground(tcell.ColorDarkGray)
 
 	// Label: "Enter line number:"
@@ -89,22 +88,7 @@ func (g *GotoLineDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 
 	// Input box
 	boxW := dialogW - 6
-	for c := 0; c < boxW; c++ {
-		screen.SetContent(x+3+c, y+3, ' ', nil, inputBoxStyle)
-	}
-	for i, r := range g.LineText {
-		if i < boxW {
-			screen.SetContent(x+3+i, y+3, r, nil, inputBoxStyle)
-		}
-	}
-
-	// Cursor
-	curX := x + 3 + len([]rune(g.LineText))
-	if curX < x+3+boxW {
-		cursorStyle := tcell.StyleDefault.Background(ui.ColorEditorCursor).Foreground(tcell.ColorBlack).Bold(true)
-		screen.SetContent(curX, y+3, ' ', nil, cursorStyle)
-		screen.ShowCursor(curX, y+3)
-	}
+	ui.DrawInputField(screen, x+3, y+3, boxW, g.LineText, true)
 
 	// Hint
 	hint := "[ Enter: OK   Esc: Cancel ]"

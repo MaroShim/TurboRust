@@ -69,7 +69,6 @@ var (
 	ColorEditorTitle      = tcell.ColorYellow
 	ColorEditorLineNumBg  = tcell.NewHexColor(0x000080)
 	ColorEditorLineNumFg  = tcell.ColorLightCyan
-	ColorEditorCursor     = tcell.ColorYellow
 	ColorEditorBreakpoint = tcell.ColorRed
 	ColorEditorCurrentIP  = tcell.ColorYellow
 

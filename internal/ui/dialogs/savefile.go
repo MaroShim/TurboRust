@@ -63,7 +63,6 @@ func (s *SaveFileDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	ui.DrawDialogBox(screen, x, y, dialogW, dialogH, "Save File As")
 
 	textStyle := tcell.StyleDefault.Background(ui.ColorDialogBg).Foreground(ui.ColorDialogFg)
-	inputBoxStyle := tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorYellow).Bold(true)
 
 	// Label
 	label := "Save file name:"
@@ -73,22 +72,7 @@ func (s *SaveFileDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 
 	// Text box
 	boxW := dialogW - 6
-	for c := 0; c < boxW; c++ {
-		screen.SetContent(x+3+c, y+3, ' ', nil, inputBoxStyle)
-	}
-	for i, r := range s.FileName {
-		if i < boxW {
-			screen.SetContent(x+3+i, y+3, r, nil, inputBoxStyle)
-		}
-	}
-
-	// Cursor
-	curX := x + 3 + len([]rune(s.FileName))
-	if curX < x+3+boxW {
-		cursorStyle := tcell.StyleDefault.Background(ui.ColorEditorCursor).Foreground(tcell.ColorBlack).Bold(true)
-		screen.SetContent(curX, y+3, ' ', nil, cursorStyle)
-		screen.ShowCursor(curX, y+3)
-	}
+	ui.DrawInputField(screen, x+3, y+3, boxW, s.FileName, true)
 
 	// Buttons
 	ui.DrawButton(screen, x+6, y+5, 12, "OK", true)

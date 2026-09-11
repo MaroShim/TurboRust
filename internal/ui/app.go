@@ -55,8 +55,6 @@ func NewApp(initialFile string) (*App, error) {
 
 	s.EnableMouse()
 	s.Clear()
-	s.SetCursorStyle(tcell.CursorStyleBlinkingBlock, tcell.ColorYellow)
-	os.Stdout.WriteString("\x1b]12;#FFFF00\x07\x1b[1 q")
 
 	w, h := s.Size()
 
@@ -176,7 +174,6 @@ func (a *App) Stop() {
 		_ = a.debugger.Stop()
 	}
 	a.screen.Fini()
-	os.Stdout.WriteString("\x1b]112\x07\x1b[0 q")
 }
 
 func (a *App) GetWatchWindow() *WatchWindow {

@@ -596,9 +596,6 @@ func (e *Editor) Draw(screen tcell.Screen, x, y, width, height int, focused bool
 				} else if lineIdx == e.HighlightLine && col >= e.HighlightStartCol && col < e.HighlightEndCol {
 					// Classic Borland Search Match Highlight: Crisp Light Cyan block with Black text
 					tokStyle = tcell.StyleDefault.Background(tcell.ColorLightCyan).Foreground(tcell.ColorBlack).Bold(true)
-				} else if focused && lineIdx == e.CursorY && col == e.CursorX && !isIP && !hasBP {
-					// High-contrast cursor cell: Bright Yellow background with Black text
-					tokStyle = tcell.StyleDefault.Background(ColorEditorCursor).Foreground(tcell.ColorBlack).Bold(true)
 				}
 
 				if lineIdx == e.CursorY && col == e.CursorX {
@@ -626,9 +623,6 @@ func (e *Editor) Draw(screen tcell.Screen, x, y, width, height int, focused bool
 			// Fill rest of the line with lineBaseStyle (stretches yellow or red bar across full window width)
 			for screenX < x+width {
 				cellStyle := lineBaseStyle
-				if focused && lineIdx == e.CursorY && screenX == actualCursorScreenX && !isIP && !hasBP {
-					cellStyle = tcell.StyleDefault.Background(ColorEditorCursor).Foreground(tcell.ColorBlack).Bold(true)
-				}
 				screen.SetContent(screenX, screenY, ' ', nil, cellStyle)
 				screenX++
 			}

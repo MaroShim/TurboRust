@@ -197,3 +197,30 @@ func DrawButton(screen tcell.Screen, x, y, width int, text string, focused bool)
 		screen.SetContent(x+c, y+1, '▀', nil, shadowStyle)
 	}
 }
+
+// DrawInputField draws a retro single-line text input field and manages the terminal cursor
+func DrawInputField(screen tcell.Screen, x, y, width int, text string, focused bool) {
+	inputBoxStyle := tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorWhite)
+	if focused {
+		inputBoxStyle = tcell.StyleDefault.Background(tcell.ColorDarkBlue).Foreground(tcell.ColorYellow).Bold(true)
+	}
+	for c := 0; c < width; c++ {
+		screen.SetContent(x+c, y, ' ', nil, inputBoxStyle)
+	}
+	runes := []rune(text)
+	for i, r := range runes {
+		if i < width {
+			screen.SetContent(x+i, y, r, nil, inputBoxStyle)
+		}
+	}
+	if focused {
+		curX := x + len(runes)
+		if curX < x+width {
+			screen.ShowCursor(curX, y)
+		} else {
+			screen.HideCursor()
+		}
+	} else {
+		screen.HideCursor()
+	}
+}
