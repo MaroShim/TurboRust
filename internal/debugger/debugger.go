@@ -322,7 +322,13 @@ func (d *Debugger) StartWithLines(binPath string, srcFile string, lines []string
 	if binPath != "" {
 		if _, err := os.Stat(binPath); err == nil {
 			if dbgPath, dbgType := FindRustDebugger(); dbgType != "internal" {
-				ext, err := NewExternalSession(dbgPath, dbgType, binPath, srcFile, bps)
+				allBps := d.breakpoints
+				if len(allBps) == 0 && len(bps) > 0 {
+					allBps = map[string]map[int]bool{
+						srcFile: bps,
+					}
+				}
+				ext, err := NewExternalSession(dbgPath, dbgType, binPath, srcFile, allBps)
 				if err == nil && ext != nil && ext.IsActive() {
 					d.extSession = ext
 					d.backendType = filepath.Base(dbgPath)

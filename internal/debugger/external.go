@@ -46,7 +46,7 @@ type ExternalSession struct {
 }
 
 // NewExternalSession launches lldb/gdb and sets initial breakpoints
-func NewExternalSession(debuggerPath, debuggerType, binPath, srcFile string, breakpoints map[int]bool) (*ExternalSession, error) {
+func NewExternalSession(debuggerPath, debuggerType, binPath, srcFile string, allBreakpoints map[string]map[int]bool) (*ExternalSession, error) {
 	var args []string
 	if debuggerType == "gdb" {
 		args = []string{"-q", binPath}
@@ -111,19 +111,29 @@ func NewExternalSession(debuggerPath, debuggerType, binPath, srcFile string, bre
 		}
 	}()
 
-	// Configure debugger options and set breakpoints
+	// Configure debugger options and set breakpoints across all files
 	if debuggerType == "gdb" {
 		sess.sendCmd("set pagination off")
 		sess.sendCmd("set confirm off")
-		for line := range breakpoints {
-			sess.sendCmd(fmt.Sprintf("break %s:%d", filepath.Base(srcFile), line))
+		for file, lines := range allBreakpoints {
+			baseFile := filepath.Base(file)
+			for line, set := range lines {
+				if set {
+					sess.sendCmd(fmt.Sprintf("break %s:%d", baseFile, line))
+				}
+			}
 		}
 		sess.sendCmd("run")
 	} else {
 		// LLDB / rust-lldb
 		sess.sendCmd("settings set auto-confirm true")
-		for line := range breakpoints {
-			sess.sendCmd(fmt.Sprintf("breakpoint set -f %s -l %d", filepath.Base(srcFile), line))
+		for file, lines := range allBreakpoints {
+			baseFile := filepath.Base(file)
+			for line, set := range lines {
+				if set {
+					sess.sendCmd(fmt.Sprintf("breakpoint set -f %s -l %d", baseFile, line))
+				}
+			}
 		}
 		sess.sendCmd("run")
 	}
@@ -156,12 +166,6 @@ func (s *ExternalSession) waitForStop(timeout time.Duration) ([]string, error) {
 	var collected []string
 	deadline := time.After(timeout)
 
-	stopKeywords := []string{
-		"stopped", "stop reason", "Breakpoint", "breakpoint",
-		"exited with status", "exited normally", "exited with code",
-		"frame #", "* thread #",
-	}
-
 	for {
 		select {
 		case line, ok := <-s.outChan:
@@ -177,19 +181,33 @@ func (s *ExternalSession) waitForStop(timeout time.Duration) ([]string, error) {
 
 			// Check for exit
 			if s.checkExit(line) {
-				time.Sleep(30 * time.Millisecond)
+				time.Sleep(50 * time.Millisecond)
 				s.drainAvailableLines(&collected)
 				return collected, nil
 			}
 
-			// Check for stop keywords
-			for _, kw := range stopKeywords {
-				if strings.Contains(line, kw) {
-					// Allow trailing lines to arrive
-					time.Sleep(50 * time.Millisecond)
-					s.drainAvailableLines(&collected)
-					return collected, nil
+			// Check for stop keywords (avoid matching 'breakpoint set' command echoes)
+			isStop := false
+			if s.debuggerType == "gdb" {
+				if (strings.Contains(line, "Breakpoint ") && strings.Contains(line, ",")) ||
+					strings.HasPrefix(strings.TrimSpace(line), "#0 ") ||
+					strings.Contains(line, "stopped") {
+					isStop = true
 				}
+			} else {
+				// LLDB / rust-lldb
+				if strings.Contains(line, "stop reason =") ||
+					strings.Contains(line, "frame #") ||
+					strings.Contains(line, "* thread #") {
+					isStop = true
+				}
+			}
+
+			if isStop {
+				// Allow trailing frame and source snippet lines to arrive
+				time.Sleep(100 * time.Millisecond)
+				s.drainAvailableLines(&collected)
+				return collected, nil
 			}
 
 		case <-deadline:

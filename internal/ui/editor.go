@@ -176,6 +176,9 @@ func (e *Editor) LoadFile(path string) error {
 	for i, l := range rawLines {
 		lines[i] = ExpandTabs(l, e.TabWidth)
 	}
+	if absP, err := filepath.Abs(cleanedPath); err == nil {
+		cleanedPath = absP
+	}
 	e.Lines = lines
 	e.FilePath = cleanedPath
 	e.FileName = filepath.Base(cleanedPath)
@@ -199,7 +202,24 @@ func (e *Editor) LoadFile(path string) error {
 			}
 		}
 	} else {
-		e.Breakpoints = make(map[int]bool)
+		// Base name fallback in case path representation differs
+		base := filepath.Base(cleanedPath)
+		found := false
+		for k, bps := range e.FileBreakpoints {
+			if filepath.Base(k) == base {
+				e.Breakpoints = make(map[int]bool)
+				for l, v := range bps {
+					if v {
+						e.Breakpoints[l] = true
+					}
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			e.Breakpoints = make(map[int]bool)
+		}
 	}
 
 	return nil
