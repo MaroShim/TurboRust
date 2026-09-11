@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"tr/internal/compiler"
 	"tr/internal/debugger"
+	"tr/internal/lsp"
 )
 
 // DialogHolder interfaces
@@ -28,6 +30,7 @@ type App struct {
 	editor      *Editor
 	debugger    *debugger.Debugger
 	watchWindow *WatchWindow
+	lspClient   *lsp.Client
 
 	// Modal Dialogs
 	compileDialog   Dialog
@@ -70,6 +73,29 @@ func NewApp(initialFile string) (*App, error) {
 		debugger:    debugger.NewDebugger(),
 		watchWindow: NewWatchWindow(2),
 	}
+
+	// Initialize LSP Client in background so it doesn't block UI startup
+	workDir := "."
+	if initialFile != "" {
+		workDir = filepath.Dir(initialFile)
+	}
+	if cargoRoot, hasCargo := compiler.FindCargoRoot(workDir); hasCargo {
+		workDir = cargoRoot
+	}
+
+	go func() {
+		client, err := lsp.StartRustAnalyzerClient(workDir)
+		if err == nil && client != nil {
+			app.lspClient = client
+			app.statusBar.SetLSPStatus("LSP: rust-analyzer", true)
+			app.SetStatusMessage("Turbo Rust ready. LSP: rust-analyzer active [F12: Def, Alt+F1: Hover]")
+			if app.editor != nil && app.editor.FilePath != "" {
+				_ = client.DidOpen(app.editor.FilePath, strings.Join(app.editor.Lines, "\n"))
+			}
+		} else {
+			app.statusBar.SetLSPStatus("LSP: None", false)
+		}
+	}()
 
 	return app, nil
 }
@@ -170,10 +196,17 @@ func (a *App) Screen() tcell.Screen {
 
 func (a *App) Stop() {
 	a.running = false
+	if a.lspClient != nil {
+		_ = a.lspClient.Close()
+	}
 	if a.debugger != nil {
 		_ = a.debugger.Stop()
 	}
 	a.screen.Fini()
+}
+
+func (a *App) GetLSP() *lsp.Client {
+	return a.lspClient
 }
 
 func (a *App) GetWatchWindow() *WatchWindow {

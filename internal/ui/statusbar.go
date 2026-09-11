@@ -15,9 +15,11 @@ type StatusItem struct {
 
 // StatusBar renders the classic Borland bottom hotkey strip
 type StatusBar struct {
-	Items   []StatusItem
-	Message string
-	MsgTime time.Time
+	Items     []StatusItem
+	Message   string
+	MsgTime   time.Time
+	LSPStatus string
+	LSPActive bool
 }
 
 func NewStatusBar() *StatusBar {
@@ -32,12 +34,19 @@ func NewStatusBar() *StatusBar {
 			{KeyName: "Alt+F5", Desc: "User", Action: "run_userscreen"},
 			{KeyName: "F10", Desc: "Menu", Action: "menu_toggle"},
 		},
+		LSPStatus: "LSP: None",
+		LSPActive: false,
 	}
 }
 
 func (sb *StatusBar) SetMessage(msg string) {
 	sb.Message = msg
 	sb.MsgTime = time.Now()
+}
+
+func (sb *StatusBar) SetLSPStatus(status string, active bool) {
+	sb.LSPStatus = status
+	sb.LSPActive = active
 }
 
 // Draw renders the status bar on the bottom row
@@ -50,7 +59,27 @@ func (sb *StatusBar) Draw(screen tcell.Screen, y, width int) {
 		screen.SetContent(x, y, ' ', nil, bgStyle)
 	}
 
-	// If there is an active status message within 3 seconds, display it prominently
+	// 1. Right-aligned LSP status badge
+	badgeLimit := width - 1
+	if sb.LSPStatus != "" {
+		badgeText := "[" + sb.LSPStatus + "]"
+		badgeLen := len(badgeText)
+		badgeX := width - badgeLen - 1
+		if badgeX > 0 {
+			badgeLimit = badgeX - 1
+			var badgeStyle tcell.Style
+			if sb.LSPActive {
+				badgeStyle = tcell.StyleDefault.Background(tcell.ColorDarkCyan).Foreground(tcell.ColorWhite).Bold(true)
+			} else {
+				badgeStyle = tcell.StyleDefault.Background(ColorStatusBarBg).Foreground(tcell.ColorDarkGray)
+			}
+			for i, r := range badgeText {
+				screen.SetContent(badgeX+i, y, r, nil, badgeStyle)
+			}
+		}
+	}
+
+	// 2. If there is an active status message within 3 seconds, display it prominently
 	if sb.Message != "" && time.Since(sb.MsgTime) < 3*time.Second {
 		tagStyle := tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorWhite).Bold(true)
 		msgStyle := tcell.StyleDefault.Background(ColorStatusBarBg).Foreground(tcell.ColorYellow).Bold(true)
@@ -62,7 +91,7 @@ func (sb *StatusBar) Draw(screen tcell.Screen, y, width int) {
 		}
 		xPos++
 		for _, r := range sb.Message {
-			if xPos < width-1 {
+			if xPos < badgeLimit {
 				screen.SetContent(xPos, y, r, nil, msgStyle)
 				xPos++
 			}

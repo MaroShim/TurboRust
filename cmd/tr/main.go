@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"tr/internal/compiler"
+	"tr/internal/lsp"
 	"tr/internal/sound"
 	"tr/internal/ui"
 	"tr/internal/ui/dialogs"
@@ -56,6 +60,9 @@ func main() {
 					app.SetStatusMessage("Error opening " + filepath.Base(path) + ": " + err.Error())
 				} else {
 					app.SetStatusMessage("Opened " + editor.FileName)
+					if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+						_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
+					}
 				}
 			})
 		case "file_save":
@@ -67,6 +74,9 @@ func main() {
 					} else {
 						sound.PlaySuccess()
 						app.SetStatusMessage("Saved " + editor.FileName)
+						if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+							_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
+						}
 					}
 				})
 			} else {
@@ -76,6 +86,9 @@ func main() {
 				} else {
 					sound.PlaySuccess()
 					app.SetStatusMessage("Saved " + editor.FileName)
+					if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+						_ = lspClient.DidChange(editor.FilePath, strings.Join(editor.Lines, "\n"))
+					}
 				}
 			}
 		case "file_save_as":
@@ -90,6 +103,9 @@ func main() {
 				} else {
 					sound.PlaySuccess()
 					app.SetStatusMessage("Saved " + editor.FileName)
+					if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+						_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
+					}
 				}
 			})
 		case "app_exit":
@@ -235,30 +251,93 @@ func main() {
 				}
 			})
 		case "search_definition":
-			sym := editor.GetWordUnderCursor()
-			if sym == "" {
-				sym = editor.LastFindQuery
-			}
-			if sym != "" {
-				file, line, col, ok := compiler.FindDefinitionInProject(editor.FilePath, sym)
-				if ok {
+			// 1. Try LSP definition first if available
+			jumped := false
+			if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				targetFile, targetLine, targetCol, ok := lspClient.Definition(ctx, editor.FilePath, editor.CursorY, editor.CursorX)
+				cancel()
+				if ok && targetFile != "" {
 					sound.PlayBell()
 					editor.PushNavLocation()
-					if file != "" && file != editor.FilePath {
-						if err := editor.LoadFile(file); err != nil {
+					if targetFile != editor.FilePath {
+						if err := editor.LoadFile(targetFile); err != nil {
 							sound.PlayError()
-							app.SetStatusMessage("Failed to open " + filepath.Base(file) + ": " + err.Error())
+							app.SetStatusMessage("Failed to open " + filepath.Base(targetFile) + ": " + err.Error())
 							return
 						}
 					}
-					editor.GotoLine(line, col)
-					app.SetStatusMessage(fmt.Sprintf("Jumped to definition of %q (%s:%d)", sym, filepath.Base(file), line))
-				} else {
-					sound.PlayError()
-					app.SetStatusMessage(fmt.Sprintf("Definition not found for %q", sym))
+					editor.GotoLine(targetLine, targetCol)
+					sym := editor.GetWordUnderCursor()
+					if sym != "" {
+						app.SetStatusMessage(fmt.Sprintf("Jumped to definition of %q (%s:%d)", sym, filepath.Base(targetFile), targetLine))
+					} else {
+						app.SetStatusMessage(fmt.Sprintf("Jumped to %s:%d", filepath.Base(targetFile), targetLine))
+					}
+					jumped = true
 				}
+			}
+
+			// 2. Fall back to built-in AST / regex project scanner
+			if !jumped {
+				sym := editor.GetWordUnderCursor()
+				if sym == "" {
+					sym = editor.LastFindQuery
+				}
+				if sym != "" {
+					file, line, col, ok := compiler.FindDefinitionInProject(editor.FilePath, sym)
+					if ok {
+						sound.PlayBell()
+						editor.PushNavLocation()
+						if file != "" && file != editor.FilePath {
+							if err := editor.LoadFile(file); err != nil {
+								sound.PlayError()
+								app.SetStatusMessage("Failed to open " + filepath.Base(file) + ": " + err.Error())
+								return
+							}
+						}
+						editor.GotoLine(line, col)
+						app.SetStatusMessage(fmt.Sprintf("Jumped to definition of %q (%s:%d)", sym, filepath.Base(file), line))
+					} else {
+						sound.PlayError()
+						app.SetStatusMessage(fmt.Sprintf("Definition not found for %q", sym))
+					}
+				} else {
+					app.SetStatusMessage("No symbol under cursor (press F12 on function name)")
+				}
+			}
+		case "search_hover":
+			lspClient := app.GetLSP()
+			if lspClient == nil || !lspClient.IsAvailable() {
+				app.SetStatusMessage("Hover requires active LSP server (rust-analyzer)")
 			} else {
-				app.SetStatusMessage("No symbol under cursor (press F12 on function name)")
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				snippet, ok := lspClient.Hover(ctx, editor.FilePath, editor.CursorY, editor.CursorX)
+				cancel()
+				if ok && snippet != "" {
+					sound.PlayBell()
+					app.SetStatusMessage(fmt.Sprintf("Hover: %s", snippet))
+				} else {
+					sym := editor.GetWordUnderCursor()
+					if sym != "" {
+						app.SetStatusMessage(fmt.Sprintf("No type info for %q", sym))
+					} else {
+						app.SetStatusMessage("No hover information available")
+					}
+				}
+			}
+		case "options_lsp_status":
+			lspClient := app.GetLSP()
+			if lspClient != nil && lspClient.IsAvailable() {
+				sound.PlayBell()
+				app.SetStatusMessage(fmt.Sprintf("LSP Server: %s [Active] Path: %s", lspClient.ServerName(), lspClient.BinPath()))
+			} else {
+				sound.PlayError()
+				if bin, found := lsp.FindRustAnalyzer(); found {
+					app.SetStatusMessage(fmt.Sprintf("LSP Server: rust-analyzer found at %s [Inactive/Starting]", bin))
+				} else {
+					app.SetStatusMessage("LSP Server: rust-analyzer not found. Using built-in AST scanner.")
+				}
 			}
 		case "search_prev_pos":
 			if editor.NavigateBack() {
@@ -502,6 +581,10 @@ func main() {
 					// Alt+F5: User Screen
 					dispatchAction("run_userscreen")
 					continue
+				} else if isAlt && key == tcell.KeyF1 {
+					// Alt+F1: Hover / Type info
+					dispatchAction("search_hover")
+					continue
 				} else if isAlt && key == tcell.KeyF3 {
 					// Alt+F3: Find in Project
 					dispatchAction("search_project")
@@ -610,6 +693,10 @@ func main() {
 				} else if key == tcell.KeyCtrlA {
 					// Ctrl+A: Select All
 					dispatchAction("edit_select_all")
+					continue
+				} else if key == tcell.KeyF1 {
+					// Ctrl+F1: Hover / Type info (laptop fallback for Alt+F1)
+					dispatchAction("search_hover")
 					continue
 				} else if key == tcell.KeyF9 {
 					// Ctrl+F9: Run
