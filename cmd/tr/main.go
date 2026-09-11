@@ -567,41 +567,39 @@ func main() {
 				continue
 			}
 
-			// 3. Global Shortcuts (Turbo C / Turbo Pascal Standard + macOS Option Key Workarounds)
+			// 3. Global Shortcuts (Turbo C / Turbo Pascal Standard Alt combinations)
 			isAlt := (mod == tcell.ModAlt)
 
-			// macOS Option key translates characters to special unicode symbols by default:
-			// Option+L = '¬', Option+X = '≈', Option+W = '∑', Option+N = '˜', Option+S = 'ß', Option+C = 'ç', Option+Q = 'œ', Option+G = '©', Option+F = 'ƒ'
-			if isAlt || ch == '¬' || ch == '≈' || ch == '∑' || ch == '˜' || ch == 'ß' || ch == 'ç' || ch == 'œ' || ch == '©' || ch == 'ƒ' {
-				if isAlt && key == tcell.KeyF9 {
+			if isAlt {
+				if key == tcell.KeyF9 {
 					// Alt+F9: Compile
 					dispatchAction("compile_compile")
 					continue
-				} else if isAlt && key == tcell.KeyF5 {
+				} else if key == tcell.KeyF5 {
 					// Alt+F5: User Screen
 					dispatchAction("run_userscreen")
 					continue
-				} else if isAlt && key == tcell.KeyF1 {
+				} else if key == tcell.KeyF1 {
 					// Alt+F1: Hover / Type info
 					dispatchAction("search_hover")
 					continue
-				} else if isAlt && key == tcell.KeyF3 {
+				} else if key == tcell.KeyF3 {
 					// Alt+F3: Find in Project
 					dispatchAction("search_project")
 					continue
-				} else if isAlt && key == tcell.KeyLeft {
+				} else if key == tcell.KeyLeft {
 					// Alt+Left: Previous Location
 					dispatchAction("search_prev_pos")
 					continue
-				} else if isAlt && key == tcell.KeyRight {
+				} else if key == tcell.KeyRight {
 					// Alt+Right: Next Location
 					dispatchAction("search_next_pos")
 					continue
-				} else if isAlt && (key == tcell.KeyBackspace || key == tcell.KeyBackspace2) {
+				} else if key == tcell.KeyBackspace || key == tcell.KeyBackspace2 {
 					// Alt+Backspace: Undo (Classic Turbo Vision convention)
 					dispatchAction("edit_undo")
 					continue
-				} else if ch == 'f' || ch == 'F' || ch == 'ƒ' {
+				} else if ch == 'f' || ch == 'F' {
 					// Alt+F: Open File Menu
 					app.OpenMenuAt(0)
 					continue
@@ -609,7 +607,7 @@ func main() {
 					// Alt+E: Open Edit Menu
 					app.OpenMenuAt(1)
 					continue
-				} else if ch == 's' || ch == 'S' || ch == 'ß' {
+				} else if ch == 's' || ch == 'S' {
 					// Alt+S: Open Search Menu
 					app.OpenMenuAt(2)
 					continue
@@ -617,7 +615,7 @@ func main() {
 					// Alt+R: Open Run Menu
 					app.OpenMenuAt(3)
 					continue
-				} else if ch == 'c' || ch == 'C' || ch == 'ç' {
+				} else if ch == 'c' || ch == 'C' {
 					// Alt+C: Open Compile Menu
 					app.OpenMenuAt(4)
 					continue
@@ -629,7 +627,7 @@ func main() {
 					// Alt+O: Open Options Menu
 					app.OpenMenuAt(6)
 					continue
-				} else if ch == 'w' || ch == 'W' || ch == '∑' {
+				} else if ch == 'w' || ch == 'W' {
 					// Alt+W: Open Window Menu
 					app.OpenMenuAt(7)
 					continue
@@ -637,23 +635,23 @@ func main() {
 					// Alt+H: Open Help Menu
 					app.OpenMenuAt(8)
 					continue
-				} else if ch == 'n' || ch == 'N' || ch == '˜' {
+				} else if ch == 'n' || ch == 'N' {
 					// Alt+N: Step Over
 					dispatchAction("debug_step_over")
 					continue
-				} else if ch == 'l' || ch == 'L' || ch == '¬' {
+				} else if ch == 'l' || ch == 'L' {
 					// Alt+L: Toggle Line Numbers
 					dispatchAction("options_toggle_linenums")
 					continue
-				} else if ch == 'g' || ch == 'G' || ch == '©' {
+				} else if ch == 'g' || ch == 'G' {
 					// Alt+G: Go to Line
 					dispatchAction("search_goto")
 					continue
-				} else if ch == 'q' || ch == 'Q' || ch == 'œ' {
+				} else if ch == 'q' || ch == 'Q' {
 					// Alt+Q: Stop Debugger
 					dispatchAction("debug_stop")
 					continue
-				} else if ch == 'x' || ch == 'X' || ch == '≈' {
+				} else if ch == 'x' || ch == 'X' {
 					// Alt+X: Exit
 					dispatchAction("app_exit")
 					return
