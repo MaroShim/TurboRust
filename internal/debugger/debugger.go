@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sync"
 )
 
@@ -72,27 +71,14 @@ func FindRustDebugger() (string, string) {
 		dbgType string
 	}
 
-	if runtime.GOOS == "darwin" {
-		candidates = []struct {
-			name    string
-			dbgType string
-		}{
-			{"rust-lldb", "lldb"},
-			{"lldb", "lldb"},
-			{"rust-gdb", "gdb"},
-			{"gdb", "gdb"},
-		}
-	} else {
-		// Linux & Windows: prioritize GDB first
-		candidates = []struct {
-			name    string
-			dbgType string
-		}{
-			{"rust-gdb", "gdb"},
-			{"gdb", "gdb"},
-			{"rust-lldb", "lldb"},
-			{"lldb", "lldb"},
-		}
+	candidates = []struct {
+		name    string
+		dbgType string
+	}{
+		{"rust-lldb", "lldb"},
+		{"lldb", "lldb"},
+		{"rust-gdb", "gdb"},
+		{"gdb", "gdb"},
 	}
 
 	for _, c := range candidates {

@@ -116,6 +116,7 @@ func NewExternalSession(debuggerPath, debuggerType, binPath, srcFile string, all
 	if debuggerType == "gdb" {
 		sess.sendCmd("set pagination off")
 		sess.sendCmd("set confirm off")
+		sess.sendCmd("set target-async off")
 		sess.sendCmd("skip -rfu ^(std::|core::|alloc::|<core::|<alloc::|<std::|compiler_builtins::)")
 		for file, lines := range allBreakpoints {
 			baseFile := filepath.Base(file)
@@ -126,6 +127,7 @@ func NewExternalSession(debuggerPath, debuggerType, binPath, srcFile string, all
 			}
 		}
 		sess.sendCmd("run")
+		sess.sendCmd("frame")
 	} else {
 		// LLDB / rust-lldb
 		sess.sendCmd("settings set auto-confirm true")
@@ -399,6 +401,9 @@ func (s *ExternalSession) Continue() error {
 	}
 
 	s.sendCmd("continue")
+	if s.debuggerType == "gdb" {
+		s.sendCmd("frame")
+	}
 
 	lines, err := s.waitForStop(3 * time.Second)
 	if err != nil {
@@ -472,6 +477,7 @@ func (s *ExternalSession) StepOver() error {
 
 	if s.debuggerType == "gdb" {
 		s.sendCmd("next")
+		s.sendCmd("frame")
 	} else {
 		s.sendCmd("thread step-over")
 	}
@@ -486,6 +492,7 @@ func (s *ExternalSession) StepOver() error {
 	for !s.isUserFile(s.state.CurrentFile) && !s.state.Exited && s.state.Active {
 		if s.debuggerType == "gdb" {
 			s.sendCmd("finish")
+			s.sendCmd("frame")
 		} else {
 			s.sendCmd("thread step-out")
 		}
@@ -511,6 +518,7 @@ func (s *ExternalSession) StepInto() error {
 
 	if s.debuggerType == "gdb" {
 		s.sendCmd("step")
+		s.sendCmd("frame")
 	} else {
 		s.sendCmd("thread step-in")
 	}
@@ -525,6 +533,7 @@ func (s *ExternalSession) StepInto() error {
 	for !s.isUserFile(s.state.CurrentFile) && !s.state.Exited && s.state.Active {
 		if s.debuggerType == "gdb" {
 			s.sendCmd("finish")
+			s.sendCmd("frame")
 		} else {
 			s.sendCmd("thread step-out")
 		}
