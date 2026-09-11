@@ -67,3 +67,71 @@ pub struct Point {
 		t.Errorf("expected at least 2 matches for add, got %d", len(matches))
 	}
 }
+
+func TestFindDefinitionRustEdgeCases(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "tr_test_edge_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	file := filepath.Join(tempDir, "lib.rs")
+	code := `// Line 1: Comment
+// fn fake_fn() -> i32 { 0 }
+pub async fn async_fetch() -> Result<(), ()> {
+    Ok(())
+}
+
+pub(crate) trait StorageHandler {
+    fn save(&self);
+}
+
+pub const MAX_BUFFER_SIZE: usize = 4096;
+static mut GLOBAL_VAL: i32 = 42;
+
+macro_rules! my_debug_log {
+    ($($arg:tt)*) => ()
+}
+`
+	if err := os.WriteFile(file, []byte(code), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. async fn
+	f, line, _, ok := FindDefinitionInProject(file, "async_fetch")
+	if !ok || line != 3 {
+		t.Errorf("expected async_fetch at line 3, got %s:%d (ok=%v)", f, line, ok)
+	}
+
+	// 2. pub(crate) trait
+	_, line, _, ok = FindDefinitionInProject(file, "StorageHandler")
+	if !ok || line != 7 {
+		t.Errorf("expected StorageHandler at line 7, got line %d", line)
+	}
+
+	// 3. const & static mut
+	_, line, _, ok = FindDefinitionInProject(file, "MAX_BUFFER_SIZE")
+	if !ok || line != 11 {
+		t.Errorf("expected MAX_BUFFER_SIZE at line 11, got line %d", line)
+	}
+	_, line, _, ok = FindDefinitionInProject(file, "GLOBAL_VAL")
+	if !ok || line != 12 {
+		t.Errorf("expected GLOBAL_VAL at line 12, got line %d", line)
+	}
+
+	// 4. macro_rules!
+	_, line, _, ok = FindDefinitionInProject(file, "my_debug_log")
+	if !ok || line != 14 {
+		t.Errorf("expected my_debug_log at line 14, got line %d", line)
+	}
+
+	// 5. Blank query
+	_, _, _, ok = FindDefinitionInProject(file, "   ")
+	if ok {
+		t.Errorf("expected blank query to return false")
+	}
+	matches := SearchInProject(file, "", false)
+	if len(matches) != 0 {
+		t.Errorf("expected empty search matches for empty string")
+	}
+}
