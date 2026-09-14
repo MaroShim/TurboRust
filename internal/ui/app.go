@@ -287,8 +287,14 @@ func (a *App) SyncDebuggerState() {
 		a.editor.SetCurrentIP(0)
 	}
 
-	if out := a.debugger.GetProgramOutput(); out != "" {
-		a.userScreen.SetExecutionResult(out, st.ExitCode, "debug")
+	if a.userScreen != nil {
+		if a.debugger.IsActive() {
+			out := a.debugger.GetProgramOutput()
+			a.userScreen.SetLiveOutput(out, st.CurrentFile, st.CurrentLine)
+		} else if st.Exited {
+			out := a.debugger.GetProgramOutput()
+			a.userScreen.SetExecutionResult(out, st.ExitCode, "debug")
+		}
 	}
 
 	// Update status bar items based on debug active state

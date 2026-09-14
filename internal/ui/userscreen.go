@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -26,15 +27,46 @@ func NewUserScreen() *UserScreen {
 	}
 }
 
-// SetExecutionResult sets the console output from a run
+// SetLiveOutput updates user screen while program is actively running or paused in debugger
+func (u *UserScreen) SetLiveOutput(output string, currentFile string, currentLine int) {
+	u.Output = output
+	rawLines := strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n")
+	if len(rawLines) > 0 && rawLines[len(rawLines)-1] == "" {
+		rawLines = rawLines[:len(rawLines)-1]
+	}
+
+	u.Lines = make([]string, 0, len(rawLines)+3)
+	if len(rawLines) == 0 || (len(rawLines) == 1 && rawLines[0] == "") {
+		u.Lines = append(u.Lines, "[No program output produced yet]")
+	} else {
+		u.Lines = append(u.Lines, rawLines...)
+	}
+	u.Lines = append(u.Lines, "")
+	if currentFile != "" && currentLine > 0 {
+		u.Lines = append(u.Lines, fmt.Sprintf("--- Debugger: paused at %s:%d (Alt+F5 or any key to return to IDE) ---", filepath.Base(currentFile), currentLine))
+	} else {
+		u.Lines = append(u.Lines, "--- Debugger: active (Alt+F5 or any key to return to IDE) ---")
+	}
+	u.ScrollY = 0
+}
+
+// SetExecutionResult sets the console output from a completed run
 func (u *UserScreen) SetExecutionResult(output string, exitCode int, duration string) {
 	u.Output = output
 	u.ExitCode = exitCode
 	u.Duration = duration
 
 	rawLines := strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n")
+	if len(rawLines) > 0 && rawLines[len(rawLines)-1] == "" {
+		rawLines = rawLines[:len(rawLines)-1]
+	}
+
 	u.Lines = make([]string, 0, len(rawLines)+3)
-	u.Lines = append(u.Lines, rawLines...)
+	if len(rawLines) == 0 || (len(rawLines) == 1 && rawLines[0] == "") {
+		u.Lines = append(u.Lines, "[Program produced no output]")
+	} else {
+		u.Lines = append(u.Lines, rawLines...)
+	}
 	u.Lines = append(u.Lines, "")
 	u.Lines = append(u.Lines, fmt.Sprintf("Process exited with code %d (elapsed: %s)", exitCode, duration))
 	u.ScrollY = 0

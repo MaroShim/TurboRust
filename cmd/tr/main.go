@@ -120,6 +120,7 @@ func main() {
 				sound.PlaySuccess()
 			}
 		case "run_userscreen":
+			app.SyncDebuggerState()
 			userScreen.Show()
 		case "compile_compile", "compile_make", "compile_buildall":
 			bRes := app.CompileCurrent()
