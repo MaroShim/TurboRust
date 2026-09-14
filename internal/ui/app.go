@@ -1,10 +1,12 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"tr/internal/compiler"
@@ -31,6 +33,7 @@ type App struct {
 	debugger    *debugger.Debugger
 	watchWindow *WatchWindow
 	lspClient   *lsp.Client
+	completionPopup *CompletionPopup
 
 	// Modal Dialogs
 	compileDialog   Dialog
@@ -49,16 +52,17 @@ type App struct {
 func NewAppWithScreen(s tcell.Screen, initialFile string) *App {
 	w, h := s.Size()
 	return &App{
-		screen:      s,
-		running:     true,
-		width:       w,
-		height:      h,
-		menuBar:     NewMenuBar(),
-		statusBar:   NewStatusBar(),
-		userScreen:  NewUserScreen(),
-		editor:      NewEditor(initialFile, 1),
-		debugger:    debugger.NewDebugger(),
-		watchWindow: NewWatchWindow(2),
+		screen:          s,
+		running:         true,
+		width:           w,
+		height:          h,
+		menuBar:         NewMenuBar(),
+		statusBar:       NewStatusBar(),
+		userScreen:      NewUserScreen(),
+		editor:          NewEditor(initialFile, 1),
+		debugger:        debugger.NewDebugger(),
+		watchWindow:     NewWatchWindow(2),
+		completionPopup: NewCompletionPopup(),
 	}
 }
 
@@ -94,6 +98,7 @@ func NewApp(initialFile string) (*App, error) {
 			app.SetStatusMessage("Turbo Rust ready. LSP: rust-analyzer active [F12: Def, Alt+F1: Hover]")
 			if app.editor != nil && app.editor.FilePath != "" {
 				_ = client.DidOpen(app.editor.FilePath, strings.Join(app.editor.Lines, "\n"))
+				app.RequestSemanticTokens()
 			}
 		} else {
 			app.statusBar.SetLSPStatus("LSP: None", false)
@@ -210,6 +215,33 @@ func (a *App) Stop() {
 
 func (a *App) GetLSP() *lsp.Client {
 	return a.lspClient
+}
+
+func (a *App) GetCompletionPopup() *CompletionPopup {
+	return a.completionPopup
+}
+
+// RequestSemanticTokens requests semantic tokens for current editor file asynchronously
+func (a *App) RequestSemanticTokens() {
+	if a.lspClient == nil || !a.lspClient.IsAvailable() || a.editor == nil || a.editor.FilePath == "" {
+		return
+	}
+
+	filePath := a.editor.FilePath
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		spans, err := a.lspClient.SemanticTokensFull(ctx, filePath)
+		if err == nil && len(spans) > 0 {
+			if a.editor != nil && a.editor.FilePath == filePath {
+				a.editor.SetSemanticTokens(spans)
+				if a.screen != nil {
+					_ = a.screen.PostEvent(tcell.NewEventInterrupt(nil))
+				}
+			}
+		}
+	}()
 }
 
 func (a *App) GetWatchWindow() *WatchWindow {
@@ -536,13 +568,18 @@ func (a *App) Redraw() {
 		a.searchResultsDialog.Draw(a.screen, a.width, a.height)
 	}
 
-	// 5. Draw Top MenuBar (row 0)
+	// 5. Draw Completion Popup if visible (highest floating window priority below menu)
+	if a.completionPopup != nil && a.completionPopup.IsVisible() {
+		a.completionPopup.Draw(a.screen)
+	}
+
+	// 6. Draw Top MenuBar (row 0)
 	a.menuBar.Draw(a.screen, a.width)
 	if a.menuBar.Active {
 		a.screen.HideCursor()
 	}
 
-	// 6. Draw Bottom StatusBar (row height-1)
+	// 7. Draw Bottom StatusBar (row height-1)
 	a.statusBar.Draw(a.screen, a.height-1, a.width)
 
 	a.screen.Show()

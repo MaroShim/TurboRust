@@ -139,6 +139,24 @@ func TestMockLSPClientInteraction(t *testing.T) {
 						"value": "```rust\npub fn calculate(val: i32) -> i32\n```",
 					},
 				}
+			case "textDocument/completion":
+				result = map[string]interface{}{
+					"isIncomplete": false,
+					"items": []map[string]interface{}{
+						{
+							"label":      "calculate",
+							"kind":       3, // Function
+							"detail":     "fn(val: i32) -> i32",
+							"insertText": "calculate",
+						},
+						{
+							"label":      "clone",
+							"kind":       2, // Method
+							"detail":     "fn(&self) -> Self",
+							"insertText": "clone",
+						},
+					},
+				}
 			case "shutdown":
 				result = nil
 			case "exit":
@@ -212,9 +230,53 @@ func TestMockLSPClientInteraction(t *testing.T) {
 		t.Errorf("expected 'pub fn calculate(val: i32) -> i32', got %q", hoverSnippet)
 	}
 
-	// 5. Clean teardown
+	// 5. Completion query
+	completions, err := client.Completion(ctx, "/workspace/main.rs", 10, 5)
+	if err != nil {
+		t.Fatalf("completion query failed: %v", err)
+	}
+	if len(completions) != 2 {
+		t.Fatalf("expected 2 completions, got %d", len(completions))
+	}
+	if completions[0].Label != "calculate" || completions[0].Kind.Badge() != "[func]" {
+		t.Errorf("unexpected completion item 0: %+v", completions[0])
+	}
+	if completions[1].Label != "clone" || completions[1].Kind.Badge() != "[mthd]" {
+		t.Errorf("unexpected completion item 1: %+v", completions[1])
+	}
+
+	// 6. Clean teardown
 	client.isClosed.Store(true)
 	_ = clientInW.Close()
 	_ = clientOutR.Close()
 	wg.Wait()
 }
+
+func TestDecodeSemanticTokens(t *testing.T) {
+	legend := []string{
+		"type", "class", "enum", "interface", "struct", "typeParameter",
+		"parameter", "variable", "property", "enumMember", "function",
+	}
+
+	data := []uint32{
+		2, 5, 8, 10, 0,
+		0, 9, 4, 6, 0,
+		3, 1, 6, 0, 1,
+	}
+
+	spans := DecodeSemanticTokens(data, legend)
+	if len(spans) != 3 {
+		t.Fatalf("expected 3 spans, got %d", len(spans))
+	}
+
+	if spans[0].Line != 2 || spans[0].StartCol != 5 || spans[0].Length != 8 || spans[0].TokenType != "function" {
+		t.Errorf("span[0] mismatch: %+v", spans[0])
+	}
+	if spans[1].Line != 2 || spans[1].StartCol != 14 || spans[1].Length != 4 || spans[1].TokenType != "parameter" {
+		t.Errorf("span[1] mismatch: %+v", spans[1])
+	}
+	if spans[2].Line != 5 || spans[2].StartCol != 1 || spans[2].Length != 6 || spans[2].TokenType != "type" || spans[2].TokenModifiers != 1 {
+		t.Errorf("span[2] mismatch: %+v", spans[2])
+	}
+}
+

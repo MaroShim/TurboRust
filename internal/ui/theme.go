@@ -86,14 +86,16 @@ var (
 	ColorButtonFg     = tcell.ColorWhite
 	ColorButtonHotKey = tcell.ColorYellow
 
-	// Syntax Highlighting (Retro style)
-	ColorSyntaxKeyword = tcell.ColorYellow
-	ColorSyntaxType    = tcell.ColorLightCyan
-	ColorSyntaxString  = tcell.ColorLightCyan
-	ColorSyntaxNumber  = tcell.ColorLightGreen
-	ColorSyntaxComment = tcell.NewHexColor(0x808080) // Gray
-	ColorSyntaxBuiltin = tcell.ColorGreen
-	ColorSyntaxNormal  = tcell.ColorWhite
+	// Syntax Highlighting (VS Code Dark+ style with Borland high-contrast harmony)
+	ColorSyntaxKeyword  = tcell.NewHexColor(0xFF79C6) // Pink / Magenta (VS Code #C586C0)
+	ColorSyntaxFunction = tcell.ColorYellow          // Bright Yellow (VS Code #DCDCAA)
+	ColorSyntaxType     = tcell.ColorLightCyan       // Mint / Cyan (VS Code #4EC9B0)
+	ColorSyntaxString   = tcell.NewHexColor(0xFFB86C) // Warm Peach / Orange (VS Code #CE9178)
+	ColorSyntaxNumber   = tcell.ColorLightGreen      // Soft Green (VS Code #B5CEA8)
+	ColorSyntaxComment  = tcell.NewHexColor(0x7EC684) // Calming Green (VS Code #6A9955)
+	ColorSyntaxMacro    = tcell.ColorYellow          // Yellow
+	ColorSyntaxVariable = tcell.NewHexColor(0x9CDCFE) // Sky Blue (VS Code #9CDCFE)
+	ColorSyntaxNormal   = tcell.ColorWhite
 
 	// User Screen
 	ColorUserScreenBg = tcell.ColorBlack

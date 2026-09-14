@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gdamore/tcell/v2"
+	"tr/internal/lsp"
 )
 
 func TestEditorOperations(t *testing.T) {
@@ -830,3 +833,37 @@ func TestEditorAtomicSaveAndFileSafety(t *testing.T) {
 		t.Errorf("expected error loading directory, got nil")
 	}
 }
+
+func TestEditorDraw_SemanticTokensOverlay(t *testing.T) {
+	simScreen := tcell.NewSimulationScreen("UTF-8")
+	if err := simScreen.Init(); err != nil {
+		t.Fatalf("failed to init simulation screen: %v", err)
+	}
+	simScreen.SetSize(80, 25)
+
+	ed := NewEditor("", 1)
+	ed.Lines = []string{
+		"fn calculate_sum(val: i32) -> MyStruct {",
+		"    MyStruct {}",
+		"}",
+	}
+
+	spans := []lsp.SemanticTokenSpan{
+		{Line: 0, StartCol: 3, Length: 13, TokenType: "function"},
+		{Line: 0, StartCol: 17, Length: 3, TokenType: "parameter"},
+		{Line: 0, StartCol: 30, Length: 8, TokenType: "type"},
+	}
+	ed.SetSemanticTokens(spans)
+
+	ed.Draw(simScreen, 0, 0, 80, 25, true)
+	simScreen.Show()
+
+	lineSpans := ed.GetSemanticTokensForLine(0)
+	if len(lineSpans) != 3 {
+		t.Fatalf("expected 3 semantic token spans for line 0, got %d", len(lineSpans))
+	}
+	if lineSpans[0].TokenType != "function" || lineSpans[1].TokenType != "parameter" || lineSpans[2].TokenType != "type" {
+		t.Errorf("unexpected token types: %+v", lineSpans)
+	}
+}
+

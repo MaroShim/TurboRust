@@ -6,10 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
+	"tr/internal/lsp"
 	"tr/internal/syntax"
 )
 
@@ -53,6 +55,10 @@ type Editor struct {
 	// Undo / Redo history
 	undoStack []EditSnapshot
 	redoStack []EditSnapshot
+
+	// LSP Semantic Tokens cache
+	muSemantic     sync.RWMutex
+	semanticTokens map[int][]lsp.SemanticTokenSpan
 }
 
 // NavLocation preserves editor position across files for F12 navigation
@@ -108,6 +114,7 @@ func NewEditor(filePath string, windowNum int) *Editor {
 		HighlightLine:     -1,
 		HighlightStartCol: 0,
 		HighlightEndCol:   0,
+		semanticTokens:    make(map[int][]lsp.SemanticTokenSpan),
 	}
 
 	if filePath != "" {
@@ -188,6 +195,11 @@ func (e *Editor) LoadFile(path string) error {
 	e.ScrollX = 0
 	e.ScrollY = 0
 	e.CurrentIP = 0
+
+	// Reset semantic tokens for the newly loaded file
+	e.muSemantic.Lock()
+	e.semanticTokens = make(map[int][]lsp.SemanticTokenSpan)
+	e.muSemantic.Unlock()
 
 	// 2. Restore or init breakpoints for the new file
 	if e.FileBreakpoints == nil {
@@ -284,6 +296,25 @@ func (e *Editor) SaveAs(path string) error {
 	e.FilePath = path
 	e.FileName = filepath.Base(path)
 	return e.SaveFile()
+}
+
+// SetSemanticTokens updates the in-memory cache of LSP semantic tokens
+func (e *Editor) SetSemanticTokens(spans []lsp.SemanticTokenSpan) {
+	e.muSemantic.Lock()
+	defer e.muSemantic.Unlock()
+
+	newMap := make(map[int][]lsp.SemanticTokenSpan)
+	for _, span := range spans {
+		newMap[span.Line] = append(newMap[span.Line], span)
+	}
+	e.semanticTokens = newMap
+}
+
+// GetSemanticTokensForLine returns cached semantic token spans for the given 0-based line
+func (e *Editor) GetSemanticTokensForLine(line int) []lsp.SemanticTokenSpan {
+	e.muSemantic.RLock()
+	defer e.muSemantic.RUnlock()
+	return e.semanticTokens[line]
 }
 
 func (e *Editor) ToggleBreakpoint(line int) bool {
@@ -853,6 +884,45 @@ func (e *Editor) Draw(screen tcell.Screen, x, y, width, height int, focused bool
 			lineText := e.Lines[lineIdx]
 			tokens := syntax.HighlightLine(lineText, lineBaseStyle, &inBlockComment)
 
+			// Apply LSP Semantic Tokens overlay if available for this line (VS Code Dark+ scheme)
+			if semSpans := e.GetSemanticTokensForLine(lineIdx); len(semSpans) > 0 {
+				for _, span := range semSpans {
+					var semStyle tcell.Style
+					switch span.TokenType {
+					case "function", "method":
+						semStyle = lineBaseStyle.Foreground(tcell.ColorYellow).Bold(true) // VS Code #DCDCAA
+					case "type", "class", "enum", "interface", "struct", "typeParameter":
+						semStyle = lineBaseStyle.Foreground(tcell.ColorLightCyan) // VS Code #4EC9B0
+					case "parameter":
+						semStyle = lineBaseStyle.Foreground(tcell.NewHexColor(0x9CDCFE)) // VS Code #9CDCFE
+					case "variable", "property":
+						semStyle = lineBaseStyle.Foreground(tcell.NewHexColor(0x9CDCFE)) // VS Code #9CDCFE
+					case "keyword":
+						semStyle = lineBaseStyle.Foreground(tcell.NewHexColor(0xFF79C6)).Bold(true) // VS Code #C586C0
+					case "namespace":
+						semStyle = lineBaseStyle.Foreground(tcell.ColorLightCyan).Bold(true)
+					case "macro":
+						semStyle = lineBaseStyle.Foreground(tcell.ColorYellow).Bold(true)
+					case "string":
+						semStyle = lineBaseStyle.Foreground(tcell.NewHexColor(0xFFB86C)) // VS Code #CE9178
+					case "number":
+						semStyle = lineBaseStyle.Foreground(tcell.ColorLightGreen) // VS Code #B5CEA8
+					case "comment":
+						semStyle = lineBaseStyle.Foreground(tcell.NewHexColor(0x7EC684)) // VS Code #6A9955
+					}
+
+					if semStyle != lineBaseStyle {
+						end := span.StartCol + span.Length
+						if end > len(tokens) {
+							end = len(tokens)
+						}
+						for c := span.StartCol; c < end; c++ {
+							tokens[c].Style = semStyle
+						}
+					}
+				}
+			}
+
 			screenX := codeStartX
 			tabW := e.TabWidth
 			if tabW <= 0 {
@@ -1330,3 +1400,99 @@ func (e *Editor) PasteText(text string) {
 	}
 	e.Dirty = true
 }
+
+// GetCursorScreenPos returns the absolute screen coordinates (screenX, screenY) of the cursor.
+func (e *Editor) GetCursorScreenPos(interiorX, interiorY, interiorW, interiorH int) (int, int) {
+	lineNumWidth := 0
+	if e.ShowLineNums {
+		lineNumWidth = 5
+	}
+	codeStartX := interiorX + lineNumWidth
+
+	cursorScreenY := interiorY + (e.CursorY - e.ScrollY)
+
+	screenX := codeStartX
+	tabW := e.TabWidth
+	if tabW <= 0 {
+		tabW = 4
+	}
+
+	if e.CursorY >= 0 && e.CursorY < len(e.Lines) {
+		runes := []rune(e.Lines[e.CursorY])
+		for col := e.ScrollX; col < e.CursorX && col < len(runes); col++ {
+			if runes[col] == '\t' {
+				relCol := screenX - codeStartX
+				spaces := tabW - (relCol % tabW)
+				screenX += spaces
+			} else {
+				screenX += runewidth.RuneWidth(runes[col])
+			}
+		}
+	} else {
+		screenX = codeStartX + (e.CursorX - e.ScrollX)
+	}
+
+	return screenX, cursorScreenY
+}
+
+// GetWordPrefixAtCursor returns the word prefix currently before the cursor and its 0-based start column.
+func (e *Editor) GetWordPrefixAtCursor() (string, int) {
+	if e.CursorY < 0 || e.CursorY >= len(e.Lines) {
+		return "", e.CursorX
+	}
+	runes := []rune(e.Lines[e.CursorY])
+	if e.CursorX < 0 || e.CursorX > len(runes) {
+		return "", e.CursorX
+	}
+
+	isIdent := func(r rune) bool {
+		return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+	}
+
+	start := e.CursorX
+	for start > 0 && isIdent(runes[start-1]) {
+		start--
+	}
+
+	return string(runes[start:e.CursorX]), start
+}
+
+// ApplyCompletion inserts the completion text at startCol, replacing any prefix up to CursorX.
+func (e *Editor) ApplyCompletion(startCol int, insertText string) {
+	if insertText == "" {
+		return
+	}
+	e.SaveSnapshot()
+	if e.CursorY < 0 || e.CursorY >= len(e.Lines) {
+		return
+	}
+
+	runes := []rune(e.Lines[e.CursorY])
+	if startCol < 0 {
+		startCol = 0
+	}
+	if startCol > len(runes) {
+		startCol = len(runes)
+	}
+	currX := e.CursorX
+	if currX < startCol {
+		currX = startCol
+	}
+	if currX > len(runes) {
+		currX = len(runes)
+	}
+
+	prefix := runes[:startCol]
+	suffix := runes[currX:]
+	insRunes := []rune(insertText)
+
+	newLine := make([]rune, 0, len(prefix)+len(insRunes)+len(suffix))
+	newLine = append(newLine, prefix...)
+	newLine = append(newLine, insRunes...)
+	newLine = append(newLine, suffix...)
+
+	e.Lines[e.CursorY] = string(newLine)
+	e.CursorX = startCol + len(insRunes)
+	e.Dirty = true
+}
+

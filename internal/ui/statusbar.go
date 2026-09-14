@@ -81,20 +81,23 @@ func (sb *StatusBar) Draw(screen tcell.Screen, y, width int) {
 
 	// 2. If there is an active status message within 3 seconds, display it prominently
 	if sb.Message != "" && time.Since(sb.MsgTime) < 3*time.Second {
-		tagStyle := tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorWhite).Bold(true)
-		msgStyle := tcell.StyleDefault.Background(ColorStatusBarBg).Foreground(tcell.ColorYellow).Bold(true)
+		tagStyle := tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorYellow).Bold(true)
+		msgStyle := tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorWhite).Bold(true)
 		tag := " [Turbo] "
 		xPos := 1
 		for _, r := range tag {
 			screen.SetContent(xPos, y, r, nil, tagStyle)
 			xPos++
 		}
-		xPos++
 		for _, r := range sb.Message {
 			if xPos < badgeLimit {
 				screen.SetContent(xPos, y, r, nil, msgStyle)
 				xPos++
 			}
+		}
+		if xPos < badgeLimit {
+			screen.SetContent(xPos, y, ' ', nil, msgStyle)
+			xPos++
 		}
 		return
 	}

@@ -60,6 +60,8 @@ func NewMenuBar() *MenuBar {
 					{Label: "Clear", Shortcut: "Ctrl+Del", ActionID: "edit_clear"},
 					{IsSep: true},
 					{Label: "Select All", Shortcut: "Ctrl+A", ActionID: "edit_select_all"},
+					{IsSep: true},
+					{Label: "Code complete", Shortcut: "Ctrl+Space", ActionID: "edit_complete"},
 				},
 			},
 			{
