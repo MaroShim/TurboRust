@@ -39,10 +39,12 @@ func main() {
 	gotoDlg := dialogs.NewGotoLineDialog()
 	findDlg := dialogs.NewFindDialog()
 	searchResDlg := dialogs.NewSearchResultsDialog()
+	confirmSaveDlg := dialogs.NewConfirmSaveDialog()
 
 	app.SetDialogs(compileDlg, errListDlg, openDlg, saveDlg, aboutDlg, gotoDlg)
 	app.SetFindDialog(findDlg)
 	app.SetSearchResultsDialog(searchResDlg)
+	app.SetConfirmSaveDialog(confirmSaveDlg)
 
 	screen := app.Screen()
 	editor := app.GetEditor()
@@ -52,51 +54,83 @@ func main() {
 
 	// Action dispatcher
 	var dispatchAction func(actionID string)
-	dispatchAction = func(actionID string) {
-		switch actionID {
-		case "file_new":
-			*editor = *ui.NewEditor("", editor.WindowNumber)
-		case "file_open":
-			openDlg.Show(".", func(path string) {
-				if err := editor.LoadFile(path); err != nil {
+
+	performFileSave := func(onSuccess func()) {
+		if editor.FilePath == "" || editor.FileName == "NONAME00.RS" {
+			saveDlg.Show("main.rs", func(path string) {
+				if err := editor.SaveAs(path); err != nil {
 					sound.PlayError()
-					app.SetStatusMessage("Error opening " + filepath.Base(path) + ": " + err.Error())
+					app.SetStatusMessage("Error saving " + filepath.Base(path) + ": " + err.Error())
 				} else {
-					app.SetStatusMessage("Opened " + editor.FileName)
+					sound.PlaySuccess()
+					app.SetStatusMessage("Saved " + editor.FileName)
 					if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
 						_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
 						app.RequestSemanticTokens()
 					}
+					if onSuccess != nil {
+						onSuccess()
+					}
 				}
 			})
-		case "file_save":
-			if editor.FilePath == "" || editor.FilePath == "NONAME00.RS" {
-				saveDlg.Show("main.rs", func(path string) {
-					if err := editor.SaveAs(path); err != nil {
+		} else {
+			if err := editor.SaveFile(); err != nil {
+				sound.PlayError()
+				app.SetStatusMessage("Error saving " + editor.FileName + ": " + err.Error())
+			} else {
+				sound.PlaySuccess()
+				app.SetStatusMessage("Saved " + editor.FileName)
+				if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+					_ = lspClient.DidChange(editor.FilePath, strings.Join(editor.Lines, "\n"))
+					app.RequestSemanticTokens()
+				}
+				if onSuccess != nil {
+					onSuccess()
+				}
+			}
+		}
+	}
+
+	ensureCleanBuffer := func(onProceed func()) {
+		if !editor.Dirty {
+			onProceed()
+			return
+		}
+		confirmSaveDlg.Show(editor.FileName, func(choice dialogs.ConfirmChoice) {
+			switch choice {
+			case dialogs.ConfirmYes:
+				performFileSave(onProceed)
+			case dialogs.ConfirmNo:
+				onProceed()
+			case dialogs.ConfirmCancel:
+				// Cancelled by user - do nothing
+			}
+		})
+	}
+
+	dispatchAction = func(actionID string) {
+		switch actionID {
+		case "file_new":
+			ensureCleanBuffer(func() {
+				*editor = *ui.NewEditor("", editor.WindowNumber)
+			})
+		case "file_open":
+			ensureCleanBuffer(func() {
+				openDlg.Show(".", func(path string) {
+					if err := editor.LoadFile(path); err != nil {
 						sound.PlayError()
-						app.SetStatusMessage("Error saving " + filepath.Base(path) + ": " + err.Error())
+						app.SetStatusMessage("Error opening " + filepath.Base(path) + ": " + err.Error())
 					} else {
-						sound.PlaySuccess()
-						app.SetStatusMessage("Saved " + editor.FileName)
+						app.SetStatusMessage("Opened " + editor.FileName)
 						if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
 							_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
 							app.RequestSemanticTokens()
 						}
 					}
 				})
-			} else {
-				if err := editor.SaveFile(); err != nil {
-					sound.PlayError()
-					app.SetStatusMessage("Error saving " + editor.FileName + ": " + err.Error())
-				} else {
-					sound.PlaySuccess()
-					app.SetStatusMessage("Saved " + editor.FileName)
-					if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
-						_ = lspClient.DidChange(editor.FilePath, strings.Join(editor.Lines, "\n"))
-						app.RequestSemanticTokens()
-					}
-				}
-			}
+			})
+		case "file_save":
+			performFileSave(nil)
 		case "file_save_as":
 			defaultName := editor.FileName
 			if defaultName == "" || defaultName == "NONAME00.RS" {
@@ -116,8 +150,10 @@ func main() {
 				}
 			})
 		case "app_exit":
-			app.Stop()
-			os.Exit(0)
+			ensureCleanBuffer(func() {
+				app.Stop()
+				os.Exit(0)
+			})
 		case "run_run":
 			bRes, _ := app.RunCurrent()
 			if !bRes.Success {
@@ -645,6 +681,32 @@ func main() {
 				continue
 			}
 
+			if confirmSaveDlg.Visible {
+				switch key {
+				case tcell.KeyLeft:
+					confirmSaveDlg.MoveLeft()
+				case tcell.KeyRight:
+					confirmSaveDlg.MoveRight()
+				case tcell.KeyTab:
+					confirmSaveDlg.MoveRight()
+				case tcell.KeyBacktab:
+					confirmSaveDlg.MoveLeft()
+				case tcell.KeyEnter:
+					confirmSaveDlg.Confirm()
+				case tcell.KeyEscape:
+					confirmSaveDlg.Choose(dialogs.ConfirmCancel)
+				case tcell.KeyRune:
+					if ch == 'y' || ch == 'Y' {
+						confirmSaveDlg.Choose(dialogs.ConfirmYes)
+					} else if ch == 'n' || ch == 'N' {
+						confirmSaveDlg.Choose(dialogs.ConfirmNo)
+					} else if ch == 'c' || ch == 'C' {
+						confirmSaveDlg.Choose(dialogs.ConfirmCancel)
+					}
+				}
+				continue
+			}
+
 			// 2.1 Completion Popup Focus (Rule 48: Strict Modal Focus Trapping)
 			if completionPopup.IsVisible() {
 				switch key {
@@ -785,7 +847,7 @@ func main() {
 				} else if ch == 'x' || ch == 'X' {
 					// Alt+X: Exit
 					dispatchAction("app_exit")
-					return
+					continue
 				}
 			}
 

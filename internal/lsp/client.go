@@ -95,12 +95,91 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
+// EnsureRustProjectConfig creates a minimal rust-project.json if no Cargo.toml or rust-project.json exists,
+// allowing rust-analyzer to index standalone Rust files and multi-file scripts seamlessly.
+func EnsureRustProjectConfig(rootDir string) {
+	if rootDir == "" {
+		return
+	}
+	absRoot, err := filepath.Abs(rootDir)
+	if err != nil {
+		absRoot = rootDir
+	}
+
+	// 1. If Cargo.toml already exists, rust-analyzer manages it natively
+	if _, err := os.Stat(filepath.Join(absRoot, "Cargo.toml")); err == nil {
+		return
+	}
+	// 2. If rust-project.json already exists, preserve it
+	rpPath := filepath.Join(absRoot, "rust-project.json")
+	if _, err := os.Stat(rpPath); err == nil {
+		return
+	}
+
+	// 3. Find root Rust file (main.rs, lib.rs, or first .rs file)
+	var rootModule string
+	candidates := []string{"main.rs", "lib.rs"}
+	for _, c := range candidates {
+		candPath := filepath.Join(absRoot, c)
+		if fi, err := os.Stat(candPath); err == nil && !fi.IsDir() {
+			rootModule = candPath
+			break
+		}
+	}
+	if rootModule == "" {
+		entries, err := os.ReadDir(absRoot)
+		if err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".rs") {
+					rootModule = filepath.Join(absRoot, entry.Name())
+					break
+				}
+			}
+		}
+	}
+	if rootModule == "" {
+		return
+	}
+
+	// 4. Query active rustc sysroot
+	sysrootCmd := exec.Command("rustc", "--print", "sysroot")
+	sysrootOut, err := sysrootCmd.Output()
+	sysroot := ""
+	if err == nil {
+		sysroot = strings.TrimSpace(string(sysrootOut))
+	}
+
+	config := map[string]interface{}{
+		"crates": []map[string]interface{}{
+			{
+				"root_module": rootModule,
+				"edition":     "2021",
+				"deps":        []interface{}{},
+			},
+		},
+	}
+	if sysroot != "" {
+		config["sysroot"] = sysroot
+		sysrootSrc := filepath.Join(sysroot, "lib", "rustlib", "src", "rust", "library")
+		if fi, err := os.Stat(sysrootSrc); err == nil && fi.IsDir() {
+			config["sysroot_src"] = sysrootSrc
+		}
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err == nil {
+		// Non-destructive write with safe permissions (Rule 1, 5)
+		_ = os.WriteFile(rpPath, data, 0644)
+	}
+}
+
 // StartRustAnalyzerClient attempts to locate and launch rust-analyzer for the workspace.
 func StartRustAnalyzerClient(rootDir string) (*Client, error) {
 	bin, found := FindRustAnalyzer()
 	if !found {
 		return nil, ErrServerNotFound
 	}
+	EnsureRustProjectConfig(rootDir)
 	return StartClient("rust-analyzer", bin, rootDir)
 }
 
@@ -556,12 +635,11 @@ func (c *Client) Hover(ctx context.Context, filePath string, line0, col0 int) (s
 
 func cleanHoverSnippet(s string) string {
 	s = strings.TrimSpace(s)
-	// Strip markdown code fence markers (e.g. ```rust ... ```)
 	lines := strings.Split(s, "\n")
 	var clean []string
 	for _, l := range lines {
 		trimmed := strings.TrimSpace(l)
-		if strings.HasPrefix(trimmed, "```") {
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "---") {
 			continue
 		}
 		if trimmed != "" {
@@ -571,7 +649,23 @@ func cleanHoverSnippet(s string) string {
 	if len(clean) == 0 {
 		return s
 	}
-	// Return first non-empty representative signature line
+
+	// Prioritize full signature line (e.g. "pub fn ...", "fn ...", "struct ...", "enum ...", "type ...", "const ...", "let ...")
+	for _, l := range clean {
+		if strings.HasPrefix(l, "pub ") ||
+			strings.HasPrefix(l, "fn ") ||
+			strings.HasPrefix(l, "struct ") ||
+			strings.HasPrefix(l, "enum ") ||
+			strings.HasPrefix(l, "trait ") ||
+			strings.HasPrefix(l, "type ") ||
+			strings.HasPrefix(l, "const ") ||
+			strings.HasPrefix(l, "let ") ||
+			strings.HasPrefix(l, "impl ") {
+			return l
+		}
+	}
+
+	// If no keyword match, return first non-empty representative signature line
 	return clean[0]
 }
 
@@ -643,10 +737,39 @@ type CompletionItem struct {
 	Label         string             `json:"label"`
 	Kind          CompletionItemKind `json:"kind"`
 	Detail        string             `json:"detail"`
-	Documentation string             `json:"documentation,omitempty"`
+	Documentation string             `json:"-"`
 	InsertText    string             `json:"insertText"`
 	SortText      string             `json:"sortText"`
 	FilterText    string             `json:"filterText"`
+}
+
+// UnmarshalJSON handles both raw string and MarkupContent for documentation
+func (item *CompletionItem) UnmarshalJSON(data []byte) error {
+	type Alias CompletionItem
+	aux := struct {
+		*Alias
+		RawDoc json.RawMessage `json:"documentation,omitempty"`
+	}{
+		Alias: (*Alias)(item),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if len(aux.RawDoc) > 0 {
+		var str string
+		if err := json.Unmarshal(aux.RawDoc, &str); err == nil {
+			item.Documentation = str
+		} else {
+			var markup struct {
+				Kind  string `json:"kind"`
+				Value string `json:"value"`
+			}
+			if err := json.Unmarshal(aux.RawDoc, &markup); err == nil {
+				item.Documentation = markup.Value
+			}
+		}
+	}
+	return nil
 }
 
 // ValueToInsert returns the text that should be placed into the editor buffer.

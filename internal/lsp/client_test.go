@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -277,6 +278,40 @@ func TestDecodeSemanticTokens(t *testing.T) {
 	}
 	if spans[2].Line != 5 || spans[2].StartCol != 1 || spans[2].Length != 6 || spans[2].TokenType != "type" || spans[2].TokenModifiers != 1 {
 		t.Errorf("span[2] mismatch: %+v", spans[2])
+	}
+}
+
+func TestEnsureRustProjectConfig(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "tr_rust_project_*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	mainFile := filepath.Join(tempDir, "main.rs")
+	if err := os.WriteFile(mainFile, []byte("fn main() {}\n"), 0644); err != nil {
+		t.Fatalf("failed to write main.rs: %v", err)
+	}
+
+	EnsureRustProjectConfig(tempDir)
+
+	rpPath := filepath.Join(tempDir, "rust-project.json")
+	data, err := os.ReadFile(rpPath)
+	if err != nil {
+		t.Fatalf("expected rust-project.json to be created: %v", err)
+	}
+
+	var parsed struct {
+		Crates []struct {
+			RootModule string `json:"root_module"`
+			Edition    string `json:"edition"`
+		} `json:"crates"`
+	}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal rust-project.json: %v", err)
+	}
+	if len(parsed.Crates) != 1 || parsed.Crates[0].RootModule != mainFile {
+		t.Errorf("unexpected crates config: %+v", parsed)
 	}
 }
 

@@ -306,3 +306,68 @@ func TestSearchResultsDialog(t *testing.T) {
 		t.Errorf("expected dialog to hide after SelectCurrent")
 	}
 }
+
+func TestConfirmSaveDialog(t *testing.T) {
+	screen := newSimScreen(t)
+	d := NewConfirmSaveDialog()
+
+	if d.IsVisible() {
+		t.Errorf("expected initially not visible")
+	}
+
+	var selectedChoice ConfirmChoice = -1
+	d.Show("test.rs", func(choice ConfirmChoice) {
+		selectedChoice = choice
+	})
+
+	if !d.IsVisible() || d.FileName != "test.rs" || d.SelectedIndex != 0 {
+		t.Fatalf("unexpected state after Show: %+v", d)
+	}
+
+	d.Draw(screen, 80, 25)
+
+	// Test navigation
+	d.MoveRight()
+	if d.SelectedIndex != 1 {
+		t.Errorf("expected selected 1 after MoveRight, got %d", d.SelectedIndex)
+	}
+	d.MoveRight()
+	if d.SelectedIndex != 2 {
+		t.Errorf("expected selected 2 after second MoveRight, got %d", d.SelectedIndex)
+	}
+	d.MoveRight()
+	if d.SelectedIndex != 0 {
+		t.Errorf("expected wrapped around to 0, got %d", d.SelectedIndex)
+	}
+	d.MoveLeft()
+	if d.SelectedIndex != 2 {
+		t.Errorf("expected wrapped around to 2 with MoveLeft, got %d", d.SelectedIndex)
+	}
+
+	// Test Confirm
+	d.Confirm()
+	if d.IsVisible() {
+		t.Errorf("expected dialog hidden after Confirm")
+	}
+	if selectedChoice != ConfirmCancel {
+		t.Errorf("expected ConfirmCancel, got %v", selectedChoice)
+	}
+
+	// Test Choose Yes
+	d.Show("main.rs", func(choice ConfirmChoice) {
+		selectedChoice = choice
+	})
+	d.Choose(ConfirmYes)
+	if d.IsVisible() || selectedChoice != ConfirmYes {
+		t.Errorf("expected Choose Yes to work, got visible=%v choice=%v", d.IsVisible(), selectedChoice)
+	}
+
+	// Test Choose No
+	d.Show("main.rs", func(choice ConfirmChoice) {
+		selectedChoice = choice
+	})
+	d.Choose(ConfirmNo)
+	if d.IsVisible() || selectedChoice != ConfirmNo {
+		t.Errorf("expected Choose No to work, got visible=%v choice=%v", d.IsVisible(), selectedChoice)
+	}
+}

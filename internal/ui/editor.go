@@ -24,6 +24,7 @@ type Editor struct {
 	ScrollY      int
 	FilePath     string
 	FileName     string
+	IsUntitled   bool
 	Dirty        bool
 	ShowLineNums bool
 	WindowNumber int
@@ -106,6 +107,7 @@ func NewEditor(filePath string, windowNum int) *Editor {
 		CursorY:           0,
 		FilePath:          filePath,
 		FileName:          "NONAME00.RS",
+		IsUntitled:        filePath == "",
 		ShowLineNums:      false,
 		WindowNumber:      windowNum,
 		TabWidth:          4,
