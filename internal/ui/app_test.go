@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -237,6 +238,64 @@ func TestConfirmSaveDialogModalVisibility(t *testing.T) {
 	mockDlg.visible = true
 	if !app.HasModalVisible() {
 		t.Errorf("expected HasModalVisible to be true when confirmSaveDialog is visible")
+	}
+}
+
+func TestUntitledScratchBuffer(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "tr_untitled_test_*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	s := tcell.NewSimulationScreen("")
+	if err := s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	defer s.Fini()
+
+	app := NewAppWithScreen(s, "")
+	app.workDir = tempDir
+
+	scratchFile := app.EnsureScratchBuffer()
+	app.editor.FilePath = scratchFile
+	app.editor.FileName = "NONAME00.RS"
+	app.editor.IsUntitled = true
+
+	if !app.editor.IsUntitled {
+		t.Errorf("expected IsUntitled to be true")
+	}
+	if app.editor.FileName != "NONAME00.RS" {
+		t.Errorf("expected FileName to be NONAME00.RS, got %s", app.editor.FileName)
+	}
+	if _, err := os.Stat(scratchFile); err != nil {
+		t.Errorf("expected scratchFile %s to exist on disk: %v", scratchFile, err)
+	}
+
+	// Verify SaveFile preserves NONAME00.RS
+	if err := app.editor.SaveFile(); err != nil {
+		t.Errorf("SaveFile failed: %v", err)
+	}
+	if app.editor.FileName != "NONAME00.RS" {
+		t.Errorf("expected FileName to remain NONAME00.RS after SaveFile, got %s", app.editor.FileName)
+	}
+
+	// Verify SaveAs sets real file
+	savedPath := filepath.Join(tempDir, "real_main.rs")
+	if err := app.editor.SaveAs(savedPath); err != nil {
+		t.Errorf("SaveAs failed: %v", err)
+	}
+	if app.editor.IsUntitled {
+		t.Errorf("expected IsUntitled to be false after SaveAs")
+	}
+	if app.editor.FileName != "real_main.rs" {
+		t.Errorf("expected FileName to be real_main.rs, got %s", app.editor.FileName)
+	}
+
+	// Verify Stop cleans up scratchDir
+	app.Stop()
+	if _, err := os.Stat(app.scratchDir); !os.IsNotExist(err) {
+		t.Errorf("expected scratchDir %s to be deleted after Stop, err=%v", app.scratchDir, err)
 	}
 }
 

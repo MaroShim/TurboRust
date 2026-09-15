@@ -191,6 +191,7 @@ func (e *Editor) LoadFile(path string) error {
 	e.Lines = lines
 	e.FilePath = cleanedPath
 	e.FileName = filepath.Base(cleanedPath)
+	e.IsUntitled = false
 	e.Dirty = false
 	e.CursorX = 0
 	e.CursorY = 0
@@ -243,10 +244,13 @@ func (e *Editor) SaveFile() error {
 	if e.FilePath == "" || e.FilePath == "NONAME00.RS" {
 		e.FilePath = "main.rs"
 		e.FileName = "main.rs"
+		e.IsUntitled = false
 	}
 	cleanedPath := filepath.Clean(e.FilePath)
 	e.FilePath = cleanedPath
-	e.FileName = filepath.Base(cleanedPath)
+	if !e.IsUntitled {
+		e.FileName = filepath.Base(cleanedPath)
+	}
 
 	dir := filepath.Dir(cleanedPath)
 	if dir == "" {
@@ -295,6 +299,7 @@ func (e *Editor) SaveFile() error {
 }
 
 func (e *Editor) SaveAs(path string) error {
+	e.IsUntitled = false
 	e.FilePath = path
 	e.FileName = filepath.Base(path)
 	return e.SaveFile()

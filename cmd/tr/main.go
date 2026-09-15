@@ -56,15 +56,20 @@ func main() {
 	var dispatchAction func(actionID string)
 
 	performFileSave := func(onSuccess func()) {
-		if editor.FilePath == "" || editor.FileName == "NONAME00.RS" {
+		if editor.IsUntitled || editor.FilePath == "" || editor.FileName == "NONAME00.RS" {
 			saveDlg.Show("main.rs", func(path string) {
+				oldPath := editor.FilePath
 				if err := editor.SaveAs(path); err != nil {
 					sound.PlayError()
 					app.SetStatusMessage("Error saving " + filepath.Base(path) + ": " + err.Error())
 				} else {
+					editor.IsUntitled = false
 					sound.PlaySuccess()
 					app.SetStatusMessage("Saved " + editor.FileName)
 					if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+						if oldPath != "" && oldPath != editor.FilePath {
+							_ = lspClient.DidClose(oldPath)
+						}
 						_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
 						app.RequestSemanticTokens()
 					}
@@ -112,17 +117,35 @@ func main() {
 		switch actionID {
 		case "file_new":
 			ensureCleanBuffer(func() {
+				oldPath := editor.FilePath
 				*editor = *ui.NewEditor("", editor.WindowNumber)
+				scratchFile := app.EnsureScratchBuffer()
+				editor.FilePath = scratchFile
+				editor.FileName = "NONAME00.RS"
+				editor.IsUntitled = true
+				_ = os.WriteFile(scratchFile, []byte(strings.Join(editor.Lines, "\n")), 0644)
+				if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+					if oldPath != "" && oldPath != scratchFile {
+						_ = lspClient.DidClose(oldPath)
+					}
+					_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
+					app.RequestSemanticTokens()
+				}
+				app.SetStatusMessage("New file created (NONAME00.RS)")
 			})
 		case "file_open":
 			ensureCleanBuffer(func() {
 				openDlg.Show(".", func(path string) {
+					oldPath := editor.FilePath
 					if err := editor.LoadFile(path); err != nil {
 						sound.PlayError()
 						app.SetStatusMessage("Error opening " + filepath.Base(path) + ": " + err.Error())
 					} else {
 						app.SetStatusMessage("Opened " + editor.FileName)
 						if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+							if oldPath != "" && oldPath != editor.FilePath {
+								_ = lspClient.DidClose(oldPath)
+							}
 							_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
 							app.RequestSemanticTokens()
 						}
@@ -133,17 +156,22 @@ func main() {
 			performFileSave(nil)
 		case "file_save_as":
 			defaultName := editor.FileName
-			if defaultName == "" || defaultName == "NONAME00.RS" {
+			if defaultName == "" || defaultName == "NONAME00.RS" || editor.IsUntitled {
 				defaultName = "main.rs"
 			}
 			saveDlg.Show(defaultName, func(path string) {
+				oldPath := editor.FilePath
 				if err := editor.SaveAs(path); err != nil {
 					sound.PlayError()
 					app.SetStatusMessage("Error saving " + filepath.Base(path) + ": " + err.Error())
 				} else {
+					editor.IsUntitled = false
 					sound.PlaySuccess()
 					app.SetStatusMessage("Saved " + editor.FileName)
 					if lspClient := app.GetLSP(); lspClient != nil && lspClient.IsAvailable() {
+						if oldPath != "" && oldPath != editor.FilePath {
+							_ = lspClient.DidClose(oldPath)
+						}
 						_ = lspClient.DidOpen(editor.FilePath, strings.Join(editor.Lines, "\n"))
 						app.RequestSemanticTokens()
 					}

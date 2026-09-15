@@ -1,2 +1,4 @@
 bin/tr.exe~
 bin/
+.tr_scratch/
+rust-project.json

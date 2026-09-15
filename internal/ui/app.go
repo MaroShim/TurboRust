@@ -48,6 +48,9 @@ type App struct {
 
 	// Callbacks for modal interaction
 	onAction func(actionID string)
+
+	workDir    string
+	scratchDir string
 }
 
 func NewAppWithScreen(s tcell.Screen, initialFile string) *App {
@@ -90,6 +93,14 @@ func NewApp(initialFile string) (*App, error) {
 	if cargoRoot, hasCargo := compiler.FindCargoRoot(workDir); hasCargo {
 		workDir = cargoRoot
 	}
+	app.workDir = workDir
+
+	if initialFile == "" {
+		scratchFile := app.EnsureScratchBuffer()
+		app.editor.FilePath = scratchFile
+		app.editor.FileName = "NONAME00.RS"
+		app.editor.IsUntitled = true
+	}
 
 	go func() {
 		client, err := lsp.StartRustAnalyzerClient(workDir)
@@ -107,6 +118,22 @@ func NewApp(initialFile string) (*App, error) {
 	}()
 
 	return app, nil
+}
+
+// EnsureScratchBuffer creates a hermetic scratch directory and shadow main.rs for untitled buffers
+func (a *App) EnsureScratchBuffer() string {
+	workDir := a.workDir
+	if workDir == "" {
+		workDir = "."
+	}
+	scratchDir := filepath.Join(workDir, ".tr_scratch")
+	_ = os.MkdirAll(scratchDir, 0755)
+	scratchFile := filepath.Join(scratchDir, "main.rs")
+	if len(a.editor.Lines) > 0 {
+		_ = os.WriteFile(scratchFile, []byte(strings.Join(a.editor.Lines, "\n")), 0644)
+	}
+	a.scratchDir = scratchDir
+	return scratchFile
 }
 
 func (a *App) SetDialogs(
@@ -209,11 +236,14 @@ func (a *App) Screen() tcell.Screen {
 
 func (a *App) Stop() {
 	a.running = false
+	if a.debugger != nil {
+		a.debugger.Stop()
+	}
 	if a.lspClient != nil {
 		_ = a.lspClient.Close()
 	}
-	if a.debugger != nil {
-		_ = a.debugger.Stop()
+	if a.scratchDir != "" {
+		_ = os.RemoveAll(a.scratchDir)
 	}
 	a.screen.Fini()
 }
