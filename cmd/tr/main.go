@@ -808,14 +808,6 @@ func main() {
 					// Alt+F3: Find in Project
 					dispatchAction("search_project")
 					continue
-				} else if key == tcell.KeyLeft {
-					// Alt+Left: Previous Location
-					dispatchAction("search_prev_pos")
-					continue
-				} else if key == tcell.KeyRight {
-					// Alt+Right: Next Location
-					dispatchAction("search_next_pos")
-					continue
 				} else if key == tcell.KeyBackspace || key == tcell.KeyBackspace2 {
 					// Alt+Backspace: Undo (Classic Turbo Vision convention)
 					dispatchAction("edit_undo")
@@ -1028,12 +1020,12 @@ func main() {
 
 			// 5. Code Editor Editing Controls
 			isShift := (mod&tcell.ModShift != 0)
-			isCtrl := (mod&tcell.ModCtrl != 0)
+			isWordNav := (mod&(tcell.ModCtrl|tcell.ModAlt) != 0)
 			if isShift {
 				switch key {
 				case tcell.KeyLeft:
 					editor.StartSelection()
-					if isCtrl {
+					if isWordNav {
 						editor.MoveWordLeft()
 					} else {
 						editor.MoveLeft()
@@ -1042,7 +1034,7 @@ func main() {
 					continue
 				case tcell.KeyRight:
 					editor.StartSelection()
-					if isCtrl {
+					if isWordNav {
 						editor.MoveWordRight()
 					} else {
 						editor.MoveRight()
@@ -1084,14 +1076,14 @@ func main() {
 			switch key {
 			case tcell.KeyLeft:
 				editor.ClearSelection()
-				if isCtrl {
+				if isWordNav {
 					editor.MoveWordLeft()
 				} else {
 					editor.MoveLeft()
 				}
 			case tcell.KeyRight:
 				editor.ClearSelection()
-				if isCtrl {
+				if isWordNav {
 					editor.MoveWordRight()
 				} else {
 					editor.MoveRight()
