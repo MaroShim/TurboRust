@@ -719,6 +719,10 @@ func (e *Editor) Delete() {
 	}
 }
 
+func isWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+}
+
 func (e *Editor) MoveLeft() {
 	e.ClearHighlight()
 	if e.CursorX > 0 {
@@ -738,6 +742,70 @@ func (e *Editor) MoveRight() {
 		e.CursorY++
 		e.CursorX = 0
 	}
+}
+
+// MoveWordLeft moves the cursor left to the beginning of the current or previous word
+func (e *Editor) MoveWordLeft() {
+	e.ClearHighlight()
+	if e.CursorX == 0 {
+		if e.CursorY > 0 {
+			e.CursorY--
+			e.CursorX = len([]rune(e.Lines[e.CursorY]))
+		}
+		return
+	}
+
+	runes := []rune(e.Lines[e.CursorY])
+	x := e.CursorX
+
+	if x > len(runes) {
+		x = len(runes)
+	}
+
+	// 1. Skip non-word runes backwards
+	for x > 0 && !isWordRune(runes[x-1]) {
+		x--
+	}
+
+	// 2. Skip word runes backwards to start of word
+	for x > 0 && isWordRune(runes[x-1]) {
+		x--
+	}
+
+	e.CursorX = x
+}
+
+// MoveWordRight moves the cursor right to the start of the next word
+func (e *Editor) MoveWordRight() {
+	e.ClearHighlight()
+	if e.CursorY >= len(e.Lines) {
+		return
+	}
+	runes := []rune(e.Lines[e.CursorY])
+	if e.CursorX >= len(runes) {
+		if e.CursorY+1 < len(e.Lines) {
+			e.CursorY++
+			e.CursorX = 0
+		}
+		return
+	}
+
+	x := e.CursorX
+	n := len(runes)
+
+	// 1. If currently on a word rune, skip remaining word runes
+	if isWordRune(runes[x]) {
+		for x < n && isWordRune(runes[x]) {
+			x++
+		}
+	}
+
+	// 2. Skip non-word runes (whitespace/punctuation) to start of next word
+	for x < n && !isWordRune(runes[x]) {
+		x++
+	}
+
+	e.CursorX = x
 }
 
 func (e *Editor) MoveUp() {

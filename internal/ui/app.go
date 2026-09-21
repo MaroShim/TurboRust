@@ -257,6 +257,10 @@ func (a *App) MenuSelect() string {
 	return act
 }
 
+func (a *App) MenuHandleKey(ch rune) (string, bool) {
+	return a.menuBar.HandleKey(ch)
+}
+
 func (a *App) Screen() tcell.Screen {
 	return a.screen
 }

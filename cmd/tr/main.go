@@ -1016,22 +1016,37 @@ func main() {
 					}
 				case tcell.KeyEscape:
 					app.MenuClose()
+				case tcell.KeyRune:
+					if ch != 0 {
+						if act, ok := app.MenuHandleKey(ch); ok && act != "" {
+							dispatchAction(act)
+						}
+					}
 				}
 				continue
 			}
 
 			// 5. Code Editor Editing Controls
 			isShift := (mod&tcell.ModShift != 0)
+			isCtrl := (mod&tcell.ModCtrl != 0)
 			if isShift {
 				switch key {
 				case tcell.KeyLeft:
 					editor.StartSelection()
-					editor.MoveLeft()
+					if isCtrl {
+						editor.MoveWordLeft()
+					} else {
+						editor.MoveLeft()
+					}
 					editor.UpdateSelection()
 					continue
 				case tcell.KeyRight:
 					editor.StartSelection()
-					editor.MoveRight()
+					if isCtrl {
+						editor.MoveWordRight()
+					} else {
+						editor.MoveRight()
+					}
 					editor.UpdateSelection()
 					continue
 				case tcell.KeyUp:
@@ -1069,10 +1084,18 @@ func main() {
 			switch key {
 			case tcell.KeyLeft:
 				editor.ClearSelection()
-				editor.MoveLeft()
+				if isCtrl {
+					editor.MoveWordLeft()
+				} else {
+					editor.MoveLeft()
+				}
 			case tcell.KeyRight:
 				editor.ClearSelection()
-				editor.MoveRight()
+				if isCtrl {
+					editor.MoveWordRight()
+				} else {
+					editor.MoveRight()
+				}
 			case tcell.KeyUp:
 				editor.ClearSelection()
 				editor.MoveUp()

@@ -971,4 +971,119 @@ func TestStatusBar_HandleMouse(t *testing.T) {
 	}
 }
 
+func TestMenuBar_HandleKey(t *testing.T) {
+	mb := NewMenuBar()
+
+	// Initially inactive
+	if _, ok := mb.HandleKey('N'); ok {
+		t.Errorf("expected HandleKey to return false when menubar inactive")
+	}
+
+	// Open File menu (index 0)
+	mb.OpenMenu(0)
+	if !mb.Active || !mb.OpenDropdown {
+		t.Fatalf("expected menubar to be active with open dropdown")
+	}
+
+	// Press 'n' (lowercase) for New -> action file_new
+	act, ok := mb.HandleKey('n')
+	if !ok || act != "file_new" {
+		t.Errorf("expected action file_new, got %q (ok=%v)", act, ok)
+	}
+	if mb.Active {
+		t.Errorf("expected menubar to close after hotkey execution")
+	}
+
+	// Open File menu again and test 'a' for Save as...
+	mb.OpenMenu(0)
+	act, ok = mb.HandleKey('a')
+	if !ok || act != "file_save_as" {
+		t.Errorf("expected action file_save_as, got %q (ok=%v)", act, ok)
+	}
+
+	// Open Edit menu (index 1) and test 't' for Cut
+	mb.OpenMenu(1)
+	act, ok = mb.HandleKey('t')
+	if !ok || act != "edit_cut" {
+		t.Errorf("expected action edit_cut, got %q (ok=%v)", act, ok)
+	}
+
+	// Non-matching key in Edit menu
+	mb.OpenMenu(1)
+	act, ok = mb.HandleKey('z')
+	if ok || act != "" {
+		t.Errorf("expected no match for 'z', got %q (ok=%v)", act, ok)
+	}
+}
+
+func TestEditor_WordMovement(t *testing.T) {
+	ed := NewEditor("", 1)
+	ed.Lines = []string{
+		"hello world foo_bar",
+		"  next line",
+	}
+	ed.CursorX = 0
+	ed.CursorY = 0
+
+	// 1. MoveWordRight from start: "hello" -> after hello and space: at index 6 ('w')
+	ed.MoveWordRight()
+	if ed.CursorX != 6 || ed.CursorY != 0 {
+		t.Errorf("expected CursorX=6, CursorY=0, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 2. MoveWordRight again: "world" -> at index 12 ('f')
+	ed.MoveWordRight()
+	if ed.CursorX != 12 || ed.CursorY != 0 {
+		t.Errorf("expected CursorX=12, CursorY=0, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 3. MoveWordRight again: "foo_bar" is one identifier -> end of line 0 (index 19)
+	ed.MoveWordRight()
+	if ed.CursorX != 19 || ed.CursorY != 0 {
+		t.Errorf("expected CursorX=19, CursorY=0, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 4. MoveWordRight at end of line -> wraps to start of next line (X=0, Y=1)
+	ed.MoveWordRight()
+	if ed.CursorX != 0 || ed.CursorY != 1 {
+		t.Errorf("expected CursorX=0, CursorY=1, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 5. MoveWordRight from leading whitespace (X=0, Y=1) -> start of "next" (X=2, Y=1)
+	ed.MoveWordRight()
+	if ed.CursorX != 2 || ed.CursorY != 1 {
+		t.Errorf("expected CursorX=2, CursorY=1, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 6. MoveWordLeft from X=2, Y=1 -> beginning of line (X=0, Y=1)
+	ed.MoveWordLeft()
+	if ed.CursorX != 0 || ed.CursorY != 1 {
+		t.Errorf("expected CursorX=0, CursorY=1, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 7. MoveWordLeft at X=0, Y=1 -> wraps to end of previous line (X=19, Y=0)
+	ed.MoveWordLeft()
+	if ed.CursorX != 19 || ed.CursorY != 0 {
+		t.Errorf("expected CursorX=19, CursorY=0, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 8. MoveWordLeft from end of "foo_bar" -> start of "foo_bar" (X=12, Y=0)
+	ed.MoveWordLeft()
+	if ed.CursorX != 12 || ed.CursorY != 0 {
+		t.Errorf("expected CursorX=12, CursorY=0, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 9. MoveWordLeft from X=12 -> start of "world" (X=6, Y=0)
+	ed.MoveWordLeft()
+	if ed.CursorX != 6 || ed.CursorY != 0 {
+		t.Errorf("expected CursorX=6, CursorY=0, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+
+	// 10. MoveWordLeft from X=6 -> start of "hello" (X=0, Y=0)
+	ed.MoveWordLeft()
+	if ed.CursorX != 0 || ed.CursorY != 0 {
+		t.Errorf("expected CursorX=0, CursorY=0, got X=%d, Y=%d", ed.CursorX, ed.CursorY)
+	}
+}
+
 
