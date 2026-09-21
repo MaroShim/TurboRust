@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"tr/internal/lsp"
+	"github.com/MaroShim/TurboRust/internal/lsp"
 )
 
 func TestCompletionPopupNavigationAndFiltering(t *testing.T) {

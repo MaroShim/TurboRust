@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	"tr/internal/compiler"
+	"github.com/MaroShim/TurboRust/internal/compiler"
 )
 
 func newSimScreen(t *testing.T) tcell.Screen {
@@ -371,3 +371,165 @@ func TestConfirmSaveDialog(t *testing.T) {
 		t.Errorf("expected Choose No to work, got visible=%v choice=%v", d.IsVisible(), selectedChoice)
 	}
 }
+
+func TestDialogs_HandleMouse(t *testing.T) {
+	screenW, screenH := 80, 25
+
+	// 1. OpenFileDialog Mouse Handling
+	openDlg := NewOpenFileDialog()
+	openDlg.Show(".", nil)
+	openDlg.Files = []string{"..", "sample1.rs", "sample2.rs"}
+	if !openDlg.IsVisible() {
+		t.Fatalf("expected OpenFileDialog to be visible")
+	}
+
+	dialogW, dialogH := 50, 16
+	x := (screenW - dialogW) / 2
+	y := (screenH - dialogH) / 2
+
+	// Wheel Down / Up
+	openDlg.HandleMouse(x+5, y+5, tcell.WheelDown, screenW, screenH)
+	if openDlg.SelectedIndex != 1 {
+		t.Errorf("expected SelectedIndex 1 after wheel down, got %d", openDlg.SelectedIndex)
+	}
+	openDlg.HandleMouse(x+5, y+5, tcell.WheelUp, screenW, screenH)
+	if openDlg.SelectedIndex != 0 {
+		t.Errorf("expected SelectedIndex 0 after wheel up, got %d", openDlg.SelectedIndex)
+	}
+
+	// Click on list item 1 (listY = y+4)
+	if len(openDlg.Files) > 1 {
+		openDlg.HandleMouse(x+5, y+4+1, tcell.Button1, screenW, screenH)
+		if openDlg.SelectedIndex != 1 {
+			t.Errorf("expected SelectedIndex 1 after click, got %d", openDlg.SelectedIndex)
+		}
+	}
+
+	// Click Cancel button: x+28, y+dialogH-3
+	openDlg.HandleMouse(x+30, y+dialogH-3, tcell.Button1, screenW, screenH)
+	if openDlg.IsVisible() {
+		t.Errorf("expected OpenFileDialog to close on Cancel click")
+	}
+
+	// 2. ConfirmSaveDialog Mouse Handling
+	confirmDlg := NewConfirmSaveDialog()
+	var confirmChoice ConfirmChoice
+	confirmDlg.Show("test.rs", func(choice ConfirmChoice) {
+		confirmChoice = choice
+	})
+	cW, cH := 48, 8
+	cx := (screenW - cW) / 2
+	cy := (screenH - cH) / 2
+	// Click Yes: cx+6, cy+4
+	confirmDlg.HandleMouse(cx+7, cy+4, tcell.Button1, screenW, screenH)
+	if confirmDlg.IsVisible() || confirmChoice != ConfirmYes {
+		t.Errorf("expected Yes choice on click, got %v", confirmChoice)
+	}
+
+	// Click No
+	confirmDlg.Show("test.rs", func(choice ConfirmChoice) {
+		confirmChoice = choice
+	})
+	confirmDlg.HandleMouse(cx+19, cy+4, tcell.Button1, screenW, screenH)
+	if confirmDlg.IsVisible() || confirmChoice != ConfirmNo {
+		t.Errorf("expected No choice on click, got %v", confirmChoice)
+	}
+
+	// Click Cancel
+	confirmDlg.Show("test.rs", func(choice ConfirmChoice) {
+		confirmChoice = choice
+	})
+	confirmDlg.HandleMouse(cx+30, cy+4, tcell.Button1, screenW, screenH)
+	if confirmDlg.IsVisible() || confirmChoice != ConfirmCancel {
+		t.Errorf("expected Cancel choice on click, got %v", confirmChoice)
+	}
+
+	// 3. SaveFileDialog Mouse Handling
+	saveDlg := NewSaveFileDialog()
+	var savedPath string
+	saveDlg.Show("hello.rs", func(path string) {
+		savedPath = path
+	})
+	sW, sH := 44, 9
+	sx := (screenW - sW) / 2
+	sy := (screenH - sH) / 2
+	// Click OK: sx+6, sy+5
+	saveDlg.HandleMouse(sx+7, sy+5, tcell.Button1, screenW, screenH)
+	if saveDlg.IsVisible() || savedPath != "hello.rs" {
+		t.Errorf("expected SaveFileDialog OK, got vis=%v path=%q", saveDlg.IsVisible(), savedPath)
+	}
+
+	// 4. FindDialog Mouse Handling
+	findDlg := NewFindDialog()
+	findDlg.Show("", func(query string, caseSens bool) {})
+	fW, fH := 44, 12
+	fx := (screenW - fW) / 2
+	fy := (screenH - fH) / 2
+	// Click checkbox: fy+5, fx+4
+	origCase := findDlg.CaseSensitive
+	findDlg.HandleMouse(fx+4, fy+5, tcell.Button1, screenW, screenH)
+	if findDlg.CaseSensitive == origCase {
+		t.Errorf("expected case sensitivity toggled")
+	}
+	// Click Cancel: fx+24, fy+fH-2
+	findDlg.HandleMouse(fx+25, fy+fH-2, tcell.Button1, screenW, screenH)
+	if findDlg.IsVisible() {
+		t.Errorf("expected FindDialog hidden on Cancel")
+	}
+
+	// 5. GotoLineDialog Mouse Handling
+	gotoDlg := NewGotoLineDialog()
+	var jumpedLine int
+	gotoDlg.Show(1, 50, func(line int) {
+		jumpedLine = line
+	})
+	gotoDlg.LineText = "25"
+	gW, gH := 36, 9
+	gx := (screenW - gW) / 2
+	gy := (screenH - gH) / 2
+	// Click OK: gx+4, gy+gH-2
+	gotoDlg.HandleMouse(gx+5, gy+gH-2, tcell.Button1, screenW, screenH)
+	if gotoDlg.IsVisible() || jumpedLine != 25 {
+		t.Errorf("expected GotoLine OK with 25, got vis=%v line=%d", gotoDlg.IsVisible(), jumpedLine)
+	}
+
+	// 6. AboutDialog Mouse Handling
+	aboutDlg := NewAboutDialog()
+	aboutDlg.Show()
+	aboutDlg.HandleMouse(10, 10, tcell.Button1, screenW, screenH)
+	if aboutDlg.IsVisible() {
+		t.Errorf("expected AboutDialog hidden on mouse click")
+	}
+
+	// 7. ErrorListDialog Mouse Handling
+	errDlg := NewErrorListDialog()
+	errDlg.Show([]compiler.CompileError{
+		{File: "main.rs", Line: 1, Column: 1, Message: "error 1"},
+		{File: "main.rs", Line: 2, Column: 1, Message: "error 2"},
+	}, nil)
+	// Wheel down / up
+	errDlg.HandleMouse(10, 10, tcell.WheelDown, screenW, screenH)
+	if errDlg.SelectedIndex != 1 {
+		t.Errorf("expected errDlg SelectedIndex 1, got %d", errDlg.SelectedIndex)
+	}
+	errDlg.HandleMouse(10, 10, tcell.WheelUp, screenW, screenH)
+	if errDlg.SelectedIndex != 0 {
+		t.Errorf("expected errDlg SelectedIndex 0, got %d", errDlg.SelectedIndex)
+	}
+
+	// 8. SearchResultsDialog Mouse Handling
+	searchDlg := NewSearchResultsDialog()
+	searchDlg.Show([]compiler.SearchMatch{
+		{File: "main.rs", Line: 1, Column: 1, Snippet: "fn main()"},
+		{File: "main.rs", Line: 5, Column: 1, Snippet: "fn test()"},
+	}, "test", nil)
+	searchDlg.HandleMouse(10, 10, tcell.WheelDown, screenW, screenH)
+	if searchDlg.SelectedIndex != 1 {
+		t.Errorf("expected searchDlg SelectedIndex 1, got %d", searchDlg.SelectedIndex)
+	}
+	searchDlg.HandleMouse(10, 10, tcell.WheelUp, screenW, screenH)
+	if searchDlg.SelectedIndex != 0 {
+		t.Errorf("expected searchDlg SelectedIndex 0, got %d", searchDlg.SelectedIndex)
+	}
+}
+

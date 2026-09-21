@@ -5,7 +5,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
-	"tr/internal/ui"
+	"github.com/MaroShim/TurboRust/internal/ui"
 )
 
 // ConfirmChoice represents the user's decision in the confirm save dialog
@@ -105,3 +105,46 @@ func (c *ConfirmSaveDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	ui.DrawButton(screen, btnX2, btnY, 8, "No", c.SelectedIndex == 1)
 	ui.DrawButton(screen, btnX3, btnY, 12, "Cancel", c.SelectedIndex == 2)
 }
+
+// HandleMouse processes mouse events when ConfirmSaveDialog is open.
+func (c *ConfirmSaveDialog) HandleMouse(mx, my int, btn tcell.ButtonMask, screenW, screenH int) bool {
+	if !c.Visible {
+		return false
+	}
+	dialogW := 48
+	dialogH := 8
+	x := (screenW - dialogW) / 2
+	y := (screenH - dialogH) / 2
+
+	btnY := y + 4
+	btnX1 := x + 6  // Yes, width 9
+	btnX2 := x + 18 // No, width 8
+	btnX3 := x + 29 // Cancel, width 12
+
+	if btn&tcell.Button1 != 0 {
+		if my == btnY {
+			if mx >= btnX1 && mx < btnX1+9 {
+				c.Choose(ConfirmYes)
+				return true
+			}
+			if mx >= btnX2 && mx < btnX2+8 {
+				c.Choose(ConfirmNo)
+				return true
+			}
+			if mx >= btnX3 && mx < btnX3+12 {
+				c.Choose(ConfirmCancel)
+				return true
+			}
+		}
+
+		if mx >= x && mx < x+dialogW && my >= y && my < y+dialogH {
+			return true
+		}
+
+		// Click outside: cancel
+		c.Choose(ConfirmCancel)
+		return true
+	}
+	return true
+}
+

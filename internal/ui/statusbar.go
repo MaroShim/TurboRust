@@ -134,3 +134,35 @@ func (sb *StatusBar) Draw(screen tcell.Screen, y, width int) {
 		xPos++
 	}
 }
+
+// HandleMouse checks if (x, y) clicked a hotkey button on the status bar.
+// Returns (actionID, handled).
+func (sb *StatusBar) HandleMouse(x, y, screenH, screenW int) (string, bool) {
+	if y != screenH-1 {
+		return "", false
+	}
+	// If message is showing, clicks simply dismiss or do nothing
+	if sb.Message != "" && time.Since(sb.MsgTime) < 3*time.Second {
+		return "", true
+	}
+
+	xPos := 1
+	for _, item := range sb.Items {
+		if xPos >= screenW-2 {
+			break
+		}
+		itemStart := xPos
+		// KeyName width
+		itemWidth := len([]rune(item.KeyName)) + 1 + len([]rune(item.Desc))
+		itemEnd := itemStart + itemWidth
+
+		if x >= itemStart && x < itemEnd {
+			return item.Action, true
+		}
+
+		xPos = itemEnd + 2 // +2 spacer
+	}
+
+	return "", true
+}
+

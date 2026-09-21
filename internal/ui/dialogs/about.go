@@ -2,7 +2,7 @@ package dialogs
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"tr/internal/ui"
+	"github.com/MaroShim/TurboRust/internal/ui"
 )
 
 // AboutDialog shows the retro Borland About information
@@ -71,3 +71,16 @@ func (a *AboutDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 
 	ui.DrawButton(screen, x+(dialogW-12)/2, y+dialogH-3, 12, "OK", true)
 }
+
+// HandleMouse processes mouse events when AboutDialog is open.
+func (a *AboutDialog) HandleMouse(mx, my int, btn tcell.ButtonMask, screenW, screenH int) bool {
+	if !a.Visible {
+		return false
+	}
+	if btn&tcell.Button1 != 0 {
+		a.Hide()
+		return true
+	}
+	return true
+}
+

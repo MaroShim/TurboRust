@@ -6,7 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
-	"tr/internal/lsp"
+	"github.com/MaroShim/TurboRust/internal/lsp"
 )
 
 // CompletionPopup renders an authentic Turbo Vision dropdown autocomplete box.
@@ -352,3 +352,46 @@ func (cp *CompletionPopup) Draw(screen tcell.Screen) {
 func IsWordRune(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
 }
+
+// HandleMouse handles mouse events on the completion popup.
+// Returns (handled, applied).
+func (cp *CompletionPopup) HandleMouse(mx, my int, btn tcell.ButtonMask) (bool, bool) {
+	if !cp.IsVisible() {
+		return false, false
+	}
+
+	if btn&tcell.WheelUp != 0 {
+		cp.MoveUp()
+		return true, false
+	}
+	if btn&tcell.WheelDown != 0 {
+		cp.MoveDown()
+		return true, false
+	}
+
+	if btn&tcell.Button1 != 0 {
+		// Inside popup bounding box
+		if mx >= cp.ScreenX && mx < cp.ScreenX+cp.Width && my >= cp.ScreenY && my < cp.ScreenY+cp.Height {
+			// Item rows start at ScreenY + 1 and end before bottom border
+			if my >= cp.ScreenY+1 && my < cp.ScreenY+cp.Height-1 {
+				clickedRow := my - (cp.ScreenY + 1)
+				clickedIdx := cp.ScrollOffset + clickedRow
+				if clickedIdx >= 0 && clickedIdx < len(cp.Filtered) {
+					if clickedIdx == cp.SelectedIndex {
+						return true, true // Apply completion
+					}
+					cp.SelectedIndex = clickedIdx
+					return true, false
+				}
+			}
+			return true, false
+		}
+
+		// Clicked outside completion popup: hide popup
+		cp.Hide()
+		return false, false
+	}
+
+	return true, false
+}
+

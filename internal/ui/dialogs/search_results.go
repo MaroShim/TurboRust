@@ -6,8 +6,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
-	"tr/internal/compiler"
-	"tr/internal/ui"
+	"github.com/MaroShim/TurboRust/internal/compiler"
+	"github.com/MaroShim/TurboRust/internal/ui"
 )
 
 // SearchResultsDialog displays project search match list and allows jumping
@@ -145,3 +145,70 @@ func (d *SearchResultsDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 		screen.SetContent(hx+i, y+dialogH-2, r, nil, hintStyle)
 	}
 }
+
+// HandleMouse processes mouse events when SearchResultsDialog is open.
+func (d *SearchResultsDialog) HandleMouse(mx, my int, btn tcell.ButtonMask, screenW, screenH int) bool {
+	if !d.Visible {
+		return false
+	}
+	dialogW := screenW - 10
+	if dialogW > 76 {
+		dialogW = 76
+	}
+	if dialogW < 50 {
+		dialogW = 50
+	}
+	dialogH := screenH - 8
+	if dialogH > 16 {
+		dialogH = 16
+	}
+	if dialogH < 10 {
+		dialogH = 10
+	}
+
+	x := (screenW - dialogW) / 2
+	y := (screenH - dialogH) / 2
+
+	if btn&tcell.WheelUp != 0 {
+		d.MoveUp()
+		return true
+	}
+	if btn&tcell.WheelDown != 0 {
+		d.MoveDown()
+		return true
+	}
+
+	if btn&tcell.Button1 != 0 {
+		listY := y + 2
+		listH := dialogH - 5
+		maxRows := listH
+
+		startIdx := 0
+		if d.SelectedIndex >= maxRows {
+			startIdx = d.SelectedIndex - maxRows + 1
+		}
+
+		if my >= listY && my < listY+listH && mx >= x+2 && mx < x+dialogW-2 {
+			clickedRow := my - listY
+			clickedIdx := startIdx + clickedRow
+			if clickedIdx >= 0 && clickedIdx < len(d.Matches) {
+				if clickedIdx == d.SelectedIndex {
+					d.SelectCurrent()
+				} else {
+					d.SelectedIndex = clickedIdx
+				}
+			}
+			return true
+		}
+
+		if mx >= x && mx < x+dialogW && my >= y && my < y+dialogH {
+			return true
+		}
+
+		// Click outside: close
+		d.Hide()
+		return true
+	}
+	return true
+}
+

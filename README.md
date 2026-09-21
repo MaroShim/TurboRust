@@ -84,24 +84,33 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 
 ---
 
-## Build & Run
+## Installation & Build
 
-### 1. Build and run Turbo Rust binary
+### 1. Install directly via Go (Recommended)
 
 ```bash
-go build -o bin/tr.exe ./cmd/tr
-./bin/tr.exe
+go install github.com/MaroShim/TurboRust/cmd/tr@latest
 ```
 
-### 2. Open a specific Rust file
+Ensure `$GOPATH/bin` (or `~/go/bin`) is in your `$PATH`. You can then launch `tr` from anywhere:
 
 ```bash
-./bin/tr.exe examples/hello.rs
-# or
-./bin/tr.exe examples/fibonacci.rs
+tr
+# or open a file directly:
+tr examples/hello.rs
+```
+
+### 2. Build from Source
+
+```bash
+git clone https://github.com/MaroShim/TurboRust.git
+cd TurboRust
+go build -o bin/tr ./cmd/tr
+./bin/tr
 ```
 
 ---
+
 
 # Turbo Rust (Version 0.89)
 
@@ -178,17 +187,28 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 
 ---
 
-## 실행 및 빌드 방법
+## 설치 및 빌드 방법
 
-### 1. 바이너리 빌드 및 실행
+### 1. Go 명령어로 즉시 설치 (권장)
+
 ```bash
-go build -o bin/tr.exe ./cmd/tr
-./bin/tr.exe
+go install github.com/MaroShim/TurboRust/cmd/tr@latest
 ```
 
-### 2. 특정 Rust 파일 열기
+`$GOPATH/bin` (또는 `~/go/bin`)이 `$PATH` 환경 변수에 등록되어 있다면 터미널 어디서나 바로 실행할 수 있습니다:
+
 ```bash
-./bin/tr.exe examples/hello.rs
-# 또는
-./bin/tr.exe examples/fibonacci.rs
+tr
+# 또는 특정 파일 바로 열기:
+tr examples/hello.rs
 ```
+
+### 2. 소스코드로부터 직접 빌드
+
+```bash
+git clone https://github.com/MaroShim/TurboRust.git
+cd TurboRust
+go build -o bin/tr ./cmd/tr
+./bin/tr
+```
+

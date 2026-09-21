@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	"tr/internal/lsp"
+	"github.com/MaroShim/TurboRust/internal/lsp"
 )
 
 func TestEditorOperations(t *testing.T) {
@@ -866,4 +866,109 @@ func TestEditorDraw_SemanticTokensOverlay(t *testing.T) {
 		t.Errorf("unexpected token types: %+v", lineSpans)
 	}
 }
+
+func TestEditor_MouseClickAndSelection(t *testing.T) {
+	ed := NewEditor("", 1)
+	ed.Lines = []string{
+		"fn main() {",
+		"    let x = 42;",
+		"    println!(\"{}\", x);",
+		"}",
+	}
+
+	interiorX, interiorY, interiorW, interiorH := 1, 2, 70, 20
+
+	// 1. Click on line 1, column 8 ("    let [x] = 42;")
+	handled := ed.HandleMouseClick(interiorX, interiorY, interiorW, interiorH, interiorX+8, interiorY+1, false)
+	if !handled {
+		t.Fatalf("expected click to be handled")
+	}
+	if ed.CursorY != 1 {
+		t.Errorf("expected CursorY 1, got %d", ed.CursorY)
+	}
+	if ed.CursorX != 8 {
+		t.Errorf("expected CursorX 8, got %d", ed.CursorX)
+	}
+
+	// 2. Drag to line 1, column 9 ("x")
+	handled = ed.HandleMouseClick(interiorX, interiorY, interiorW, interiorH, interiorX+9, interiorY+1, true)
+	if !handled {
+		t.Fatalf("expected drag to be handled")
+	}
+	if !ed.SelectActive {
+		t.Errorf("expected SelectActive to be true during drag")
+	}
+	selected := ed.GetSelectedText()
+	if selected != "x" {
+		t.Errorf("expected selected text 'x', got %q", selected)
+	}
+
+	// 3. ScrollLines
+	ed.ScrollLines(5)
+	if ed.ScrollY != 3 { // capped at len(lines)-1 = 3
+		t.Errorf("expected ScrollY capped at 3, got %d", ed.ScrollY)
+	}
+	ed.ScrollLines(-10)
+	if ed.ScrollY != 0 {
+		t.Errorf("expected ScrollY capped at 0, got %d", ed.ScrollY)
+	}
+}
+
+func TestMenuBar_HandleMouse(t *testing.T) {
+	mb := NewMenuBar()
+
+	// 1. Click "File" menu (starts at x=1)
+	act, handled := mb.HandleMouse(2, 0)
+	if !handled {
+		t.Fatalf("expected click on menu title to be handled")
+	}
+	if act != "" {
+		t.Errorf("expected empty action on title click, got %q", act)
+	}
+	if !mb.Active || !mb.OpenDropdown || mb.ActiveMenu != 0 {
+		t.Errorf("expected File menu to be open, active=%v open=%v menu=%d", mb.Active, mb.OpenDropdown, mb.ActiveMenu)
+	}
+
+	// 2. Click "Open..." item in File menu (item 1, row = 2 + 1 = 3)
+	act, handled = mb.HandleMouse(5, 3)
+	if !handled || act != "file_open" {
+		t.Errorf("expected action 'file_open', got handled=%v act=%q", handled, act)
+	}
+	if mb.Active || mb.OpenDropdown {
+		t.Errorf("expected menu to close after action")
+	}
+
+	// 3. Click outside menu closes it
+	mb.OpenMenu(1) // Edit menu
+	act, handled = mb.HandleMouse(40, 10)
+	if !handled || act != "" || mb.Active {
+		t.Errorf("expected menu to close on outside click")
+	}
+}
+
+func TestStatusBar_HandleMouse(t *testing.T) {
+	sb := NewStatusBar()
+	screenH := 25
+	screenW := 80
+
+	// 1. Click on F1 Help (x=1..8) -> action "help_about"
+	act, handled := sb.HandleMouse(2, screenH-1, screenH, screenW)
+	if !handled || act != "help_about" {
+		t.Errorf("expected 'help_about', got handled=%v act=%q", handled, act)
+	}
+
+	// 2. Click on F2 Save
+	// F1 Help ends around: 1 + 2 + 1 + 4 = 8, + 2 spaces = 10
+	act, handled = sb.HandleMouse(11, screenH-1, screenH, screenW)
+	if !handled || act != "file_save" {
+		t.Errorf("expected 'file_save', got handled=%v act=%q", handled, act)
+	}
+
+	// 3. Click outside statusbar row
+	act, handled = sb.HandleMouse(11, 10, screenH, screenW)
+	if handled {
+		t.Errorf("expected not handled when clicking outside statusbar row")
+	}
+}
+
 

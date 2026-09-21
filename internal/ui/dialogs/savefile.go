@@ -2,7 +2,7 @@ package dialogs
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"tr/internal/ui"
+	"github.com/MaroShim/TurboRust/internal/ui"
 )
 
 // SaveFileDialog allows entering a filename to save
@@ -78,3 +78,38 @@ func (s *SaveFileDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	ui.DrawButton(screen, x+6, y+5, 12, "OK", true)
 	ui.DrawButton(screen, x+24, y+5, 12, "Cancel", false)
 }
+
+// HandleMouse processes mouse events when SaveFileDialog is open.
+func (s *SaveFileDialog) HandleMouse(mx, my int, btn tcell.ButtonMask, screenW, screenH int) bool {
+	if !s.Visible {
+		return false
+	}
+	dialogW := 44
+	dialogH := 9
+	x := (screenW - dialogW) / 2
+	y := (screenH - dialogH) / 2
+
+	if btn&tcell.Button1 != 0 {
+		// OK button: x+6, y+5, width 12
+		if my == y+5 && mx >= x+6 && mx < x+6+12 {
+			s.Confirm()
+			return true
+		}
+		// Cancel button: x+24, y+5, width 12
+		if my == y+5 && mx >= x+24 && mx < x+24+12 {
+			s.Hide()
+			return true
+		}
+
+		// Inside dialog
+		if mx >= x && mx < x+dialogW && my >= y && my < y+dialogH {
+			return true
+		}
+
+		// Outside dialog: close
+		s.Hide()
+		return true
+	}
+	return true
+}
+

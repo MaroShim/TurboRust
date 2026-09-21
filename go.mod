@@ -1,4 +1,4 @@
-module tr
+module github.com/MaroShim/TurboRust
 
 go 1.26.5
 

@@ -2,7 +2,7 @@ package dialogs
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"tr/internal/ui"
+	"github.com/MaroShim/TurboRust/internal/ui"
 )
 
 // FindDialog represents the retro Borland Find Text dialog
@@ -147,3 +147,48 @@ func (f *FindDialog) Draw(screen tcell.Screen, screenW, screenH int) {
 	ui.DrawButton(screen, x+6, y+dialogH-2, 12, "OK", f.FocusField == 0 || f.FocusField == 2)
 	ui.DrawButton(screen, x+24, y+dialogH-2, 12, "Cancel", f.FocusField == 3)
 }
+
+// HandleMouse processes mouse events when FindDialog is open.
+func (f *FindDialog) HandleMouse(mx, my int, btn tcell.ButtonMask, screenW, screenH int) bool {
+	if !f.Visible {
+		return false
+	}
+	dialogW := 44
+	dialogH := 12
+	x := (screenW - dialogW) / 2
+	y := (screenH - dialogH) / 2
+
+	if btn&tcell.Button1 != 0 {
+		// Input field: row y+3, x+3 to x+3+(dialogW-6)
+		if my == y+3 && mx >= x+3 && mx < x+dialogW-3 {
+			f.FocusField = 0
+			return true
+		}
+		// Checkbox: row y+5, x+3 to x+22
+		if my == y+5 && mx >= x+3 && mx < x+22 {
+			f.CaseSensitive = !f.CaseSensitive
+			f.FocusField = 1
+			return true
+		}
+		// OK button: x+6, y+dialogH-2, width 12
+		if my == y+dialogH-2 && mx >= x+6 && mx < x+6+12 {
+			f.Confirm()
+			return true
+		}
+		// Cancel button: x+24, y+dialogH-2, width 12
+		if my == y+dialogH-2 && mx >= x+24 && mx < x+24+12 {
+			f.Hide()
+			return true
+		}
+
+		if mx >= x && mx < x+dialogW && my >= y && my < y+dialogH {
+			return true
+		}
+
+		// Click outside: cancel
+		f.Hide()
+		return true
+	}
+	return true
+}
+
