@@ -1,4 +1,4 @@
-# Turbo Rust (Version 0.89)
+# Turbo Rust (Version 0.90)
 
 > **Retro Borland Turbo Pascal / Turbo C Look & Feel IDE for the Rust Language**
 
@@ -89,9 +89,9 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 ### 1. Pre-built Binaries (GitHub Releases)
 
 Download ready-to-use standalone executables for your platform from [GitHub Releases](https://github.com/MaroShim/TurboRust/releases):
-* **macOS**: `tr-v0.89-darwin-arm64.tar.gz` (Apple Silicon M-series)
-* **Linux**: `tr-v0.89-linux-amd64.tar.gz` (64-bit)
-* **Windows**: `tr-v0.89-windows-amd64.zip` (64-bit)
+* **macOS**: `tr-v0.90-darwin-arm64.tar.gz` (Apple Silicon M-series)
+* **Linux**: `tr-v0.90-linux-amd64.tar.gz` (64-bit)
+* **Windows**: `tr-v0.90-windows-amd64.zip` (64-bit)
 
 > [!NOTE]
 > **Windows Defender / SmartScreen Notice**:
@@ -125,7 +125,7 @@ go build -o bin/tr ./cmd/tr
 
 
 
-# Turbo Rust (Version 0.89)
+# Turbo Rust (Version 0.90)
 
 > **볼랜드 Turbo Pascal / Turbo C 레트로 감성의 Rust 전용 TUI IDE**
 
@@ -205,9 +205,9 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 ### 1. 사전 빌드된 바이너리 다운로드 (GitHub Releases)
 
 [GitHub Releases](https://github.com/MaroShim/TurboRust/releases)에서 OS별로 빌드된 독립 실행 파일을 즉시 다운로드하여 사용할 수 있습니다:
-* **macOS (Apple Silicon)**: `tr-v0.89-darwin-arm64.tar.gz`
-* **Linux (64-bit)**: `tr-v0.89-linux-amd64.tar.gz`
-* **Windows (64-bit)**: `tr-v0.89-windows-amd64.zip`
+* **macOS (Apple Silicon)**: `tr-v0.90-darwin-arm64.tar.gz`
+* **Linux (64-bit)**: `tr-v0.90-linux-amd64.tar.gz`
+* **Windows (64-bit)**: `tr-v0.90-windows-amd64.zip`
 
 > [!NOTE]
 > **Windows Defender / SmartScreen 오진 안내**:
