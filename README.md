@@ -75,7 +75,8 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 | **Alt + F5** | **User Screen** | Toggle program execution output screen |
 | **F10** | Menu Bar | Focus top pull-down menu bar |
 | **Alt + X** | Exit | Quit Turbo Rust |
-| **Shift + Arrow Keys** | **Select Block** | Select/highlight text block |
+| **Ctrl + Left / Right** | **Word Jump** | Move cursor word-by-word (macOS: **Option + Left / Right**) |
+| **Shift + Arrow Keys** | **Select Block** | Select/highlight text block (supports Ctrl/Option for word selection) |
 | **Ctrl + A** | **Select All** | Select all buffer text (`Edit ➔ Select All`) |
 | **Ctrl + C** / **Ctrl + Ins** | **Copy** | Copy selected block to clipboard (`Edit ➔ Copy`) |
 | **Ctrl + X** / **Shift + Del** | **Cut** | Cut selected block to clipboard (`Edit ➔ Cut`) |
@@ -191,7 +192,8 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 | **Alt + F5** | **User Screen** | 프로그램 실행 결과 화면 토글 |
 | **F10** | Menu Bar | 상단 풀다운 메뉴바 포커스 토글 |
 | **Alt + X** | Exit | Turbo Rust 종료 |
-| **Shift + 방향키** | **Select Block** | 텍스트 영역 블록 선택 (하이라이트) |
+| **Ctrl + 좌 / 우 방향키** | **단어 단위 이동** | 단어 단위로 커서 좌우 이동 (macOS: **Option + 좌 / 우**) |
+| **Shift + 방향키** | **Select Block** | 텍스트 영역 블록 선택 (Ctrl/Option 조합 시 단어 단위 블록 선택) |
 | **Ctrl + A** | **Select All** | 버퍼 전체 텍스트 블록 선택 (`Edit ➔ Select All`) |
 | **Ctrl + C** / **Ctrl + Ins** | **Copy** | 선택한 블록 클립보드에 복사 (`Edit ➔ Copy`) |
 | **Ctrl + X** / **Shift + Del** | **Cut** | 선택한 블록 잘라내어 클립보드에 저장 (`Edit ➔ Cut`) |
