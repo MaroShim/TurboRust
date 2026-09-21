@@ -86,7 +86,19 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 
 ## Installation & Build
 
-### 1. Install directly via Go (Recommended)
+### 1. Pre-built Binaries (GitHub Releases)
+
+Download ready-to-use standalone executables for your platform from [GitHub Releases](https://github.com/MaroShim/TurboRust/releases):
+* **macOS**: `tr-v0.89-darwin-arm64.tar.gz` (Apple Silicon M-series)
+* **Linux**: `tr-v0.89-linux-amd64.tar.gz` (64-bit)
+* **Windows**: `tr-v0.89-windows-amd64.zip` (64-bit)
+
+> [!NOTE]
+> **Windows Defender / SmartScreen Notice**:
+> Since these open-source binaries are newly compiled without expensive commercial code-signing certificates, Windows Defender or SmartScreen may occasionally flag them as unrecognized or a false positive.
+> If a Windows SmartScreen popup appears, click **"More info" ➔ "Run anyway"** (추가 정보 ➔ 실행) or add an exclusion to run safely. You can also build directly from source using the Go compiler below.
+
+### 2. Install directly via Go (Recommended)
 
 ```bash
 go install github.com/MaroShim/TurboRust/cmd/tr@latest
@@ -100,7 +112,7 @@ tr
 tr examples/hello.rs
 ```
 
-### 2. Build from Source
+### 3. Build from Source
 
 ```bash
 git clone https://github.com/MaroShim/TurboRust.git
@@ -110,6 +122,7 @@ go build -o bin/tr ./cmd/tr
 ```
 
 ---
+
 
 
 # Turbo Rust (Version 0.89)
@@ -189,7 +202,19 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 
 ## 설치 및 빌드 방법
 
-### 1. Go 명령어로 즉시 설치 (권장)
+### 1. 사전 빌드된 바이너리 다운로드 (GitHub Releases)
+
+[GitHub Releases](https://github.com/MaroShim/TurboRust/releases)에서 OS별로 빌드된 독립 실행 파일을 즉시 다운로드하여 사용할 수 있습니다:
+* **macOS (Apple Silicon)**: `tr-v0.89-darwin-arm64.tar.gz`
+* **Linux (64-bit)**: `tr-v0.89-linux-amd64.tar.gz`
+* **Windows (64-bit)**: `tr-v0.89-windows-amd64.zip`
+
+> [!NOTE]
+> **Windows Defender / SmartScreen 오진 안내**:
+> 유료 상용 코드 서명(Code Signing) 인증서가 적용되지 않은 순수 오픈소스 바이너리 특성상, 윈도우 디펜더(Windows Defender) 또는 SmartScreen에서 바이러스/위험 파일로 오진(False Positive)할 수 있습니다.
+> SmartScreen 경고 창이 나타날 경우 **"추가 정보" ➔ "실행"**을 누르시거나 백신 예외 처리를 하시면 안전하게 실행하실 수 있습니다. 오진이 염려되시는 경우 아래의 Go 소스 빌드 방식을 이용하시면 소스로부터 신뢰할 수 있는 바이너리를 직접 컴파일하여 사용하실 수 있습니다.
+
+### 2. Go 명령어로 즉시 설치 (권장)
 
 ```bash
 go install github.com/MaroShim/TurboRust/cmd/tr@latest
@@ -203,7 +228,7 @@ tr
 tr examples/hello.rs
 ```
 
-### 2. 소스코드로부터 직접 빌드
+### 3. 소스코드로부터 직접 빌드
 
 ```bash
 git clone https://github.com/MaroShim/TurboRust.git
@@ -211,4 +236,5 @@ cd TurboRust
 go build -o bin/tr ./cmd/tr
 ./bin/tr
 ```
+
 
