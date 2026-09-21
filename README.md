@@ -8,6 +8,12 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 
 ---
 
+<p align="center">
+  <img src="docs/images/screenshot.png" alt="Turbo Rust Screenshot" width="850">
+</p>
+
+---
+
 ## Key Features
 
 * **Classic Borland Turbo Vision UI**:
@@ -133,6 +139,12 @@ go build -o bin/tr ./cmd/tr
 **Turbo Rust (`tr`)**는 90년대 볼랜드(Borland)의 전설적인 **Turbo Pascal**과 **Turbo C** 특유의 비주얼 인터페이스(시그니처 터보 블루 에디터 창 `#0000A8`, 이중선 프레임 `╔═╗`, 상단 드롭다운 메뉴바, 하단 핫키 바, `Alt+F5` User Screen)에 현대의 **Rust 툴체인(`rustc`, `cargo`)**을 완벽하게 융합한 레트로 터미널 개발 환경(TUI IDE)입니다.
 
 Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되며, 깜빡임 없는 터미널 렌더링을 제공합니다.
+
+---
+
+<p align="center">
+  <img src="docs/images/screenshot.png" alt="Turbo Rust 스크린샷" width="850">
+</p>
 
 ---
 
