@@ -3,4 +3,5 @@ bin/
 .tr_scratch/
 rust-project.json
 dist/
+.DS_Store
 
