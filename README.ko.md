@@ -80,6 +80,12 @@ Go 언어와 `tcell/v2`로 구현되어 단일 실행 파일로 즉시 실행되
 | **Ctrl + V** / **Shift + Ins** | **Paste** | 클립보드 내용 커서 위치에 붙여넣기 (`Edit ➔ Paste`) |
 | **Esc** | Close | 활성 메뉴/팝업 다이얼로그 닫기, 선택 해제 |
 
+> [!TIP]
+> **macOS 터미널 Option(Alt) 키 설정 안내**:
+> macOS 환경에서 `Alt` 키 조합 단축키(`Alt+F`, `Alt+X`, `Alt+F9`, `Alt+F5` 등)를 정상적으로 사용하려면 터미널 옵션에서 **Option(Alt) 키를 Meta 키로 동작하도록 설정**해야 합니다:
+> - **기본 터미널(Terminal.app)**: `설정(Settings)` ➔ `프로파일(Profiles)` ➔ `키보드(Keyboard)` ➔ **"Option 키를 Meta 키로 사용(Use Option as Meta key)"** 체크
+> - **iTerm2**: `Settings` ➔ `Profiles` ➔ `Keys` ➔ `Left/Right Option Key`를 **"Esc+"**로 지정
+
 ---
 
 ## 설치 및 빌드 방법

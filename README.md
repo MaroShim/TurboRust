@@ -91,6 +91,12 @@ Implemented in Go for instant native performance and zero-dependency terminal re
 | **Ctrl + V** / **Shift + Ins** | **Paste** | Paste clipboard contents at cursor (`Edit ➔ Paste`) |
 | **Esc** | Close | Close active modal/dialog or clear selection |
 
+> [!TIP]
+> **macOS Terminal Option (Alt) Key Configuration**:
+> On macOS, to ensure `Alt` key shortcuts (`Alt+F`, `Alt+X`, `Alt+F9`, `Alt+F5`, etc.) function properly, configure your terminal to **use the Option key as a Meta key**:
+> - **macOS Terminal.app**: `Settings` ➔ `Profiles` ➔ `Keyboard` ➔ Check **"Use Option as Meta key"**
+> - **iTerm2**: `Settings` ➔ `Profiles` ➔ `Keys` ➔ Set `Left/Right Option Key` to **"Esc+"**
+
 ---
 
 ## Installation & Build
