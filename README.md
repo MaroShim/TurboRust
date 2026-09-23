@@ -111,7 +111,7 @@ Download ready-to-use standalone executables for your platform from [GitHub Rele
 > [!NOTE]
 > **Windows Defender / SmartScreen Notice**:
 > Since these open-source binaries are newly compiled without expensive commercial code-signing certificates, Windows Defender or SmartScreen may occasionally flag them as unrecognized or a false positive.
-> If a Windows SmartScreen popup appears, click **"More info" ➔ "Run anyway"** (추가 정보 ➔ 실행) or add an exclusion to run safely. You can also build directly from source using the Go compiler below.
+> If a Windows SmartScreen popup appears, click **"More info" ➔ "Run anyway"** or add an exclusion to run safely. You can also build directly from source using the Go compiler below.
 
 ### 2. Install directly via Go (Recommended)
 
